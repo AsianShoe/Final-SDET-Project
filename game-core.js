@@ -24,10 +24,10 @@ function getDefaultGameData() {
     };
 }
 
-const RARITY_COST_EXPONENT = 1.25;
+const RARITY_COST_EXPONENT = 1.1;
 const RARITY_COST_DIVISOR = 160;
 const LUCK_MULT_WEIGHT = 1.15;
-const MOLD_MULT_WEIGHT = 0.95;
+const MOLD_MULT_WEIGHT = 1.25;
 
 function getRarityCostScaling(rarityName) {
     if (!Array.isArray(RARITY_TIERS)) return 1;
@@ -62,7 +62,7 @@ class GameCore {
         
         // Costs
         this.mold_cost = 3;
-        this.luck_cost = 5;
+        this.luck_cost = 4;
         
         // Enemy system
         this.spawned_enemies = {};

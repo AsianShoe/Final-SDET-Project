@@ -477,7 +477,7 @@ function showUpgrades() {
     while (tempCost <= gameCore.money) {
         maxLuck += 1;
         tempLevel += 1;
-        tempCost += Math.round(Math.pow(tempLevel, 2.4)) + 5;
+        tempCost += Math.round(Math.pow(tempLevel, 2.1)) + 4;
     }
     
     display.innerHTML = `

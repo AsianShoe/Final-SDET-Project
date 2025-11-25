@@ -91,14 +91,16 @@ class GameCore {
     updateLuckMult() {
         const levelMult = 1 + (this.player.level / 100);
         
+        const PRE50_OFFSET = 1.05;
+
         if (this.luck_level <= 50) {
-            this.luck_multiplier = Math.round((1 + Math.log1p(this.luck_level) * levelMult - Math.log1p(1) * levelMult) * 100) / 100;
+            this.luck_multiplier = Math.round((1 + (Math.log1p(this.luck_level) - PRE50_OFFSET) * levelMult) * 100) / 100;
         } else {
             this.luck_multiplier = Math.round(Math.pow(this.luck_level, 1.01) * levelMult);
         }
 
         if (this.mold_level <= 50) {
-            this.mold_mult = Math.round((1 + Math.log1p(this.mold_level) * levelMult - Math.log1p(1) * levelMult) * 100) / 100;
+            this.mold_mult = Math.round((1 + (Math.log1p(this.mold_level) - PRE50_OFFSET) * levelMult) * 100) / 100;
         } else {
             this.mold_mult = Math.round(Math.pow(this.mold_level, 1.015) * levelMult);
         }

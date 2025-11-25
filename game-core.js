@@ -343,6 +343,7 @@ class GameCore {
     processSellArea() {
         const currentTime = Date.now() / 1000;
         const soldItems = [];
+        let soldSomething = false;
         
         for (let i = this.sell_area.length - 1; i >= 0; i--) {
             const entry = this.sell_area[i];
@@ -355,7 +356,12 @@ class GameCore {
                 soldItems.push({ item, levelsGained });
                 this.recycled_ids.push(item.ID);
                 this.sell_area.splice(i, 1);
+                soldSomething = true;
             }
+        }
+        
+        if (soldSomething) {
+            this.saveGame();
         }
         
         return soldItems;

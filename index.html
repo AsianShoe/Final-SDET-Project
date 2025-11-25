@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RNG Calendar - Task Manager</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+    <!-- Authentication Page -->
+    <div id="auth-container" class="auth-container">
+        <div class="auth-box">
+            <h1>Your Calendar</h1>
+            <div id="auth-tabs" class="auth-tabs">
+                <button id="tab-login" class="auth-tab active">Login</button>
+                <button id="tab-register" class="auth-tab">Register</button>
+            </div>
+
+            <!-- Login Form -->
+            <div id="login-form" class="auth-form active">
+                <h2>Login</h2>
+                <form id="login-form-element">
+                    <div class="form-group">
+                        <label for="login-username">Username</label>
+                        <input type="text" id="login-username" placeholder="Enter username" required>
+                        <span class="error-message" id="login-username-error"></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="login-password">Password</label>
+                        <input type="password" id="login-password" placeholder="Enter password" required>
+                        <span class="error-message" id="login-password-error"></span>
+                    </div>
+                    <button type="submit" class="auth-submit-btn">Login</button>
+                    <div class="auth-message" id="login-message"></div>
+                </form>
+            </div>
+
+            <!-- Registration Form -->
+            <div id="register-form" class="auth-form">
+                <h2>Register</h2>
+                <form id="register-form-element">
+                    <div class="form-group">
+                        <label for="register-username">Username</label>
+                        <input type="text" id="register-username" placeholder="Enter username" required minlength="3" maxlength="20">
+                        <span class="error-message" id="register-username-error"></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="register-password">Password</label>
+                        <input type="password" id="register-password" placeholder="Enter password" required minlength="6">
+                        <span class="error-message" id="register-password-error"></span>
+                        <small class="password-hint">Password must be at least 6 characters long</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="register-password-confirm">Confirm Password</label>
+                        <input type="password" id="register-password-confirm" placeholder="Confirm password" required>
+                        <span class="error-message" id="register-password-confirm-error"></span>
+                    </div>
+                    <button type="submit" class="auth-submit-btn">Register</button>
+                    <div class="auth-message" id="register-message"></div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div id="app-container" class="hidden">
+
+        <header>
+            <h1 id="welcome-header">Your Calendar</h1>
+            <nav>
+                <button id="nav-calendar" class="active">Calendar</button>
+                <button id="nav-shop">Shop</button>
+                <button id="nav-game">Game (RNG System)</button>
+                <button id="logout-btn" class="logout-btn">Logout</button>
+            </nav>
+        </header>
+
+        <section id="calendar-page" class="page active">
+            
+            <div class="calendar-controls">
+                <button id="prev-month">← Previous</button>
+                <h2 id="current-month-year"></h2>
+                <button id="next-month">Next →</button>
+            </div>
+
+            <div class="calendar-container">
+                <div class="calendar-header">
+                    <div class="day-header">Sun</div>
+                    <div class="day-header">Mon</div>
+                    <div class="day-header">Tue</div>
+                    <div class="day-header">Wed</div>
+                    <div class="day-header">Thu</div>
+                    <div class="day-header">Fri</div>
+                    <div class="day-header">Sat</div>
+                </div>
+                <div id="calendar-grid" class="calendar-grid"></div>
+            </div>
+
+            <div class="task-input-modal" id="task-modal">
+                <div class="modal-content">
+                    <span class="close-modal">&times;</span>
+                    <h3>Add Task for <span id="selected-date-display"></span></h3>
+                    <form id="task-form">
+                        <input type="text" id="task-description" placeholder="Enter task description" required>
+                        <div class="time-input-group">
+                            <select id="task-hour" required>
+                                <option value="">Hour</option>
+                                <option value="01">1</option>
+                                <option value="02">2</option>
+                                <option value="03">3</option>
+                                <option value="04">4</option>
+                                <option value="05">5</option>
+                                <option value="06">6</option>
+                                <option value="07">7</option>
+                                <option value="08">8</option>
+                                <option value="09">9</option>
+                                <option value="10">10</option>
+                                <option value="11">11</option>
+                                <option value="12">12</option>
+                            </select>
+                            <span>:</span>
+                            <select id="task-minute" required>
+                                <option value="">Min</option>
+                                <option value="00">00</option>
+                                <option value="05">05</option>
+                                <option value="10">10</option>
+                                <option value="15">15</option>
+                                <option value="20">20</option>
+                                <option value="25">25</option>
+                                <option value="30">30</option>
+                                <option value="35">35</option>
+                                <option value="40">40</option>
+                                <option value="45">45</option>
+                                <option value="50">50</option>
+                                <option value="55">55</option>
+                            </select>
+                            <select id="task-ampm" required>
+                                <option value="AM" selected>AM</option>
+                                <option value="PM">PM</option>
+                            </select>
+                        </div>
+                        <input type="hidden" id="selected-date" value="">
+                        <button type="submit">Add Task</button>
+                    </form>
+                </div>
+            </div>
+
+            <div id="task-details-modal" class="task-input-modal">
+                <div class="modal-content">
+                    <span class="close-modal">&times;</span>
+                    <h3>Tasks for <span id="details-date-display"></span></h3>
+                    <ul id="date-tasks-list" class="task-list"></ul>
+                </div>
+            </div>
+        </section>
+
+        <section id="shop-page" class="page">
+            <h2>Shop</h2>
+            <div class="shop-placeholder">
+                <p>The shop is currently empty. Items will be available here soon!</p>
+            </div>
+        </section>
+
+        <section id="game-page" class="page">
+            <h2>RNG Game Rewards System</h2>
+            <div class="game-placeholder">
+                <p>The Random Number Generation (RNG) Game is under construction.</p>
+                <p>**Complete your tasks on the Calendar page to earn rewards here soon!**</p>
+                <button id="back-to-calendar">Go Back to Calendar</button>
+            </div>
+        </section>
+
+    </div>
+
+    <!-- Game Scripts (load in order, synchronously) -->
+    <script src="game-config.js"></script>
+    <script src="game-enemies.js"></script>
+    <script src="game-settings.js"></script>
+    <script src="game-core.js"></script>
+    <script src="game-ui.js"></script>
+    <script src="java.js"></script>
+    <script>
+        // Verify all game classes are loaded
+        window.addEventListener('DOMContentLoaded', () => {
+            if (typeof GameCore === 'undefined') {
+                console.error('GameCore class not loaded!');
+            }
+            if (typeof GameSettings === 'undefined') {
+                console.error('GameSettings class not loaded!');
+            }
+            if (typeof initializeGameUI === 'undefined') {
+                console.error('initializeGameUI function not loaded!');
+            }
+        });
+    </script>
+</body>
+</html>

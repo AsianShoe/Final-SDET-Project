@@ -26,6 +26,8 @@ function getDefaultGameData() {
 
 const RARITY_COST_EXPONENT = 1.25;
 const RARITY_COST_DIVISOR = 160;
+const LUCK_MULT_WEIGHT = 1.15;
+const MOLD_MULT_WEIGHT = 0.95;
 
 function getRarityCostScaling(rarityName) {
     if (!Array.isArray(RARITY_TIERS)) return 1;
@@ -91,17 +93,21 @@ class GameCore {
     updateLuckMult() {
         const levelMult = 1 + (this.player.level / 100);
         
+        let luckRaw;
         if (this.luck_level <= 50) {
-            this.luck_multiplier = Math.round((1 + Math.log1p(this.luck_level) * levelMult - Math.log1p(1) * levelMult) * 100) / 100;
+            luckRaw = 1 + Math.log1p(this.luck_level) * levelMult - Math.log1p(1) * levelMult;
         } else {
-            this.luck_multiplier = Math.round(Math.pow(this.luck_level, 1.01) * levelMult);
+            luckRaw = Math.pow(this.luck_level, 1.01) * levelMult;
         }
+        this.luck_multiplier = Math.round(luckRaw * LUCK_MULT_WEIGHT * 100) / 100;
         
+        let moldRaw;
         if (this.mold_level <= 50) {
-            this.mold_mult = Math.round((1 + Math.log1p(this.mold_level) * levelMult - Math.log1p(1) * levelMult) * 100) / 100;
+            moldRaw = 1 + Math.log1p(this.mold_level) * levelMult - Math.log1p(1) * levelMult;
         } else {
-            this.mold_mult = Math.round(Math.pow(this.mold_level, 1.015) * levelMult);
+            moldRaw = Math.pow(this.mold_level, 1.015) * levelMult;
         }
+        this.mold_mult = Math.round(moldRaw * MOLD_MULT_WEIGHT * 100) / 100;
         
         this.enemy_luck_multiplier = Math.round((Math.pow(levelMult, 2.5) - 1 + 1) * 100) / 100;
         this.player_luck_multiplier = levelMult;

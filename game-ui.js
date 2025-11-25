@@ -605,21 +605,15 @@ function showSettings() {
 
 // Action functions (called from UI)
 function equipItem(itemId) {
-    const item = gameCore.item_storage.find(i => i.ID === itemId);
-    if (!item) return;
+    const itemIndex = gameCore.item_storage.findIndex(i => i.ID === itemId);
+    if (itemIndex < 0) return;
+    
+    const [item] = gameCore.item_storage.splice(itemIndex, 1);
     
     if (gameCore.player.equipped) {
-        const oldEquipped = gameCore.player.equipped;
-        if (gameCore.recycled_ids.length > 0) {
-            oldEquipped.ID = gameCore.recycled_ids.pop();
-        } else {
-            oldEquipped.ID = gameCore.item_id_counter;
-            gameCore.item_id_counter += 1;
-        }
-        gameCore.item_storage.push(oldEquipped);
+        gameCore.item_storage.push(gameCore.player.equipped);
     }
     
-    gameCore.item_storage = gameCore.item_storage.filter(i => i.ID !== itemId);
     gameCore.player.equipped = item;
     gameCore.saveGame();
     
@@ -631,15 +625,7 @@ function equipItem(itemId) {
 function unequipWeapon() {
     if (!gameCore.player.equipped) return;
     
-    const equipped = gameCore.player.equipped;
-    if (gameCore.recycled_ids.length > 0) {
-        equipped.ID = gameCore.recycled_ids.pop();
-    } else {
-        equipped.ID = gameCore.item_id_counter;
-        gameCore.item_id_counter += 1;
-    }
-    
-    gameCore.item_storage.push(equipped);
+    gameCore.item_storage.push(gameCore.player.equipped);
     gameCore.player.equipped = null;
     gameCore.saveGame();
     

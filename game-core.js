@@ -80,6 +80,10 @@ class GameCore {
         this.recalculate();
     }
     
+    getLevelScale() {
+        return 1 + (this.player.level * 0.01);
+    }
+
     // Recalculate costs and multipliers
     recalculate() {
         this.mold_cost = Math.round(Math.pow(this.mold_level, 1.9)) + 3;
@@ -92,6 +96,7 @@ class GameCore {
         const levelMult = 1 + (this.player.level / 100);
         
         const PRE50_OFFSET = 1.05;
+        const levelScale = this.getLevelScale();
 
         if (this.luck_level <= 50) {
             this.luck_multiplier = Math.round((1 + (Math.log1p(this.luck_level) - PRE50_OFFSET) * levelMult) * 100) / 100;
@@ -105,6 +110,8 @@ class GameCore {
             this.mold_mult = Math.round(Math.pow(this.mold_level, 1.015) * levelMult);
         }
         
+        this.luck_multiplier = Number((Math.round(this.luck_multiplier * levelScale * 100) / 100).toFixed(2));
+        this.mold_mult = Number((Math.round(this.mold_mult * levelScale * 100) / 100).toFixed(2));
         this.enemy_luck_multiplier = Math.round((Math.pow(levelMult, 2.5) - 1 + 1) * 100) / 100;
         this.player_luck_multiplier = levelMult;
     }

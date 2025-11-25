@@ -97,18 +97,17 @@ class GameCore {
         } else {
             luckRaw = Math.pow(this.luck_level, 1.01) * levelMult;
         }
-        const luckBonus = Math.log1p(this.luck_level) / 12;
-        this.luck_multiplier = Number((Math.round((luckRaw + luckBonus) * 100) / 100).toFixed(2));
+        this.luck_multiplier = Number((Math.round(luckRaw * 100) / 100).toFixed(2));
         
         let moldRaw;
         if (this.mold_level <= 50) {
             moldRaw = 1 + Math.log1p(this.mold_level) * levelMult - Math.log1p(1) * levelMult;
         } else {
-            moldRaw = Math.pow(this.mold_level, 1.015) * levelMult;
+            moldRaw = Math.pow(this.mold_level, 1.01) * levelMult;
         }
-        const moldBonus = Math.log1p(this.mold_level) / 10;
-        const moldCandidate = Math.round((moldRaw + moldBonus) * 100) / 100;
-        const minMold = Number((this.luck_multiplier + 0.25).toFixed(2));
+        const moldBonus = Math.log1p(this.mold_level) / 20;
+        const moldCandidate = Number((Math.round((moldRaw + moldBonus) * 100) / 100).toFixed(2));
+        const minMold = Number((this.luck_multiplier + 0.15).toFixed(2));
         this.mold_mult = Number(Math.max(minMold, moldCandidate).toFixed(2));
         
         this.enemy_luck_multiplier = Math.round((Math.pow(levelMult, 2.5) - 1 + 1) * 100) / 100;

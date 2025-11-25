@@ -24,7 +24,7 @@ function getDefaultGameData() {
     };
 }
 
-const RARITY_COST_EXPONENT = 1.1;
+const RARITY_COST_EXPONENT = 1.25;
 const RARITY_COST_DIVISOR = 160;
 const LUCK_MULT_WEIGHT = 1.15;
 const MOLD_MULT_WEIGHT = 1.25;
@@ -341,7 +341,7 @@ class GameCore {
         let totalCost = 0;
         let tempLevel = this.luck_level;
         for (let i = 0; i < amount; i++) {
-            totalCost += Math.round(Math.pow(tempLevel, 2.4)) + 5;
+            totalCost += Math.round(Math.pow(tempLevel, 2.1)) + 4;
             tempLevel += 1;
         }
         
@@ -352,7 +352,7 @@ class GameCore {
         for (let i = 0; i < amount; i++) {
             this.luck_level += 1;
             this.money -= this.luck_cost;
-            this.luck_cost = Math.round(Math.pow(this.luck_level, 2.4)) + 5;
+            this.luck_cost = Math.round(Math.pow(this.luck_level, 2.1)) + 4;
         }
         
         this.updateLuckMult();

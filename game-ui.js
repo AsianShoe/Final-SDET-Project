@@ -2,6 +2,28 @@
 // GAME UI - User Interface Components
 // ============================================
 
+// Get color for rarity tier
+function getRarityColor(rarityName) {
+    // Extract base rarity name (handle +1, +2 variants)
+    const baseRarity = rarityName.replace(/\+[0-9]+$/, '').trim();
+    
+    const colorMap = {
+        'Common': '#808080',      // Gray
+        'Uncommon': '#32CD32',    // Lime Green
+        'Rare': '#1E90FF',        // Dodger Blue
+        'Epic': '#9370DB',        // Medium Purple
+        'Legendary': '#FFD700',   // Gold
+        'Mythical': '#DC143C',    // Crimson
+        'Divine': '#F0F8FF',      // Alice Blue (whitish/divine)
+        'Cosmic': '#4B0082',      // Indigo
+        'Universal': '#FF1493',   // Deep Pink
+        'Zenith': '#FFD700'       // Gold (highest tier)
+    };
+    
+    // Return color if found, otherwise default to gray
+    return colorMap[baseRarity] || '#808080';
+}
+
 // Initialize game UI
 function initializeGameUI(username) {
     if (!username) {
@@ -397,10 +419,11 @@ function showSellArea() {
         gameCore.sell_area.forEach(entry => {
             const item = entry.item;
             const timeRemaining = Math.max(0, Math.ceil(entry.timer - (currentTime - entry.time_added)));
+            const rarityColor = getRarityColor(item.Rarity);
             html += `
-                <div class="sell-area-item">
+                <div class="sell-area-item" style="border-color: ${rarityColor}; border-width: 2px; border-style: solid;">
                     <div class="item-info">
-                        <strong>ID: ${item.ID}</strong> - ${item.Rarity} ${item.Mold} ${item.Weapon}<br>
+                        <strong style="color: ${rarityColor};">ID: ${item.ID}</strong> - <span style="color: ${rarityColor};">${item.Rarity}</span> ${item.Mold} ${item.Weapon}<br>
                         RNG: 1 in ${item.RNG} | Price: $${item.Price.toFixed(2)} | Damage: ${item.Damage} | Defense: ${item.Defense}<br>
                         <span class="time-remaining">Time before sold: ${timeRemaining}s</span>
                     </div>
@@ -513,10 +536,11 @@ function showEquip() {
     
     if (gameCore.player.equipped) {
         const equipped = gameCore.player.equipped;
+        const rarityColor = getRarityColor(equipped.Rarity);
         html += `
-            <div class="equipped-item">
+            <div class="equipped-item" style="border-color: ${rarityColor}; border-width: 2px; border-style: solid;">
                 <h4>Currently Equipped:</h4>
-                <p><strong>${equipped.Rarity} ${equipped.Mold} ${equipped.Weapon}</strong></p>
+                <p><strong style="color: ${rarityColor};">${equipped.Rarity}</strong> ${equipped.Mold} ${equipped.Weapon}</p>
                 <p>Damage: ${equipped.Damage} | Defense: ${equipped.Defense}</p>
                 <button class="game-btn" onclick="unequipWeapon()">Unequip</button>
             </div>
@@ -528,9 +552,10 @@ function showEquip() {
     } else {
         html += '<h4>Available Weapons:</h4><div class="equip-list">';
         gameCore.item_storage.forEach(item => {
+            const rarityColor = getRarityColor(item.Rarity);
             html += `
-                <div class="equip-item">
-                    <p><strong>ID: ${item.ID}</strong> - ${item.Rarity} ${item.Mold} ${item.Weapon}</p>
+                <div class="equip-item" style="border-color: ${rarityColor}; border-width: 2px; border-style: solid;">
+                    <p><strong style="color: ${rarityColor};">ID: ${item.ID}</strong> - <span style="color: ${rarityColor};">${item.Rarity}</span> ${item.Mold} ${item.Weapon}</p>
                     <p>Damage: ${item.Damage} | Defense: ${item.Defense}</p>
                     <div class="item-actions">
                         <button class="game-btn-small" onclick="equipItem(${item.ID})">Equip</button>

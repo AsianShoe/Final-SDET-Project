@@ -532,7 +532,10 @@ function showEquip() {
                 <div class="equip-item">
                     <p><strong>ID: ${item.ID}</strong> - ${item.Rarity} ${item.Mold} ${item.Weapon}</p>
                     <p>Damage: ${item.Damage} | Defense: ${item.Defense}</p>
-                    <button class="game-btn-small" onclick="equipItem(${item.ID})">Equip</button>
+                    <div class="item-actions">
+                        <button class="game-btn-small" onclick="equipItem(${item.ID})">Equip</button>
+                        <button class="game-btn-small" onclick="sellItem(${item.ID})">Sell</button>
+                    </div>
                 </div>
             `;
         });

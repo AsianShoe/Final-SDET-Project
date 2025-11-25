@@ -2,6 +2,28 @@
 // GAME CORE - Main Game Logic
 // ============================================
 
+const GAME_DATA_SCHEMA_VERSION = 1;
+
+function getDefaultGameData() {
+    const defaultThreshold = (typeof gameSettings !== 'undefined' && gameSettings && typeof gameSettings.auto_sell_threshold === 'number')
+        ? gameSettings.auto_sell_threshold
+        : 100;
+
+    return {
+        player: { level: 1, exp: 0, equipped: null },
+        money: 0,
+        item_storage: [],
+        recycled_ids: [],
+        mold_level: 1,
+        luck_level: 1,
+        level_exp: 0,
+        item_id_counter: 0,
+        sell_area: [],
+        schema_version: GAME_DATA_SCHEMA_VERSION,
+        auto_sell_threshold: defaultThreshold
+    };
+}
+
 class GameCore {
     constructor(username) {
         this.username = username;
@@ -331,6 +353,7 @@ class GameCore {
                 this.player.exp += item.Price * expMult;
                 const levelsGained = this.checkLevelUp();
                 soldItems.push({ item, levelsGained });
+                this.recycled_ids.push(item.ID);
                 this.sell_area.splice(i, 1);
             }
         }
@@ -351,38 +374,65 @@ class GameCore {
     
     // Save game
     saveGame() {
-        const data = {
+        const key = `gameData_${this.username}`;
+        let existingData = {};
+        try {
+            existingData = JSON.parse(localStorage.getItem(key)) || {};
+        } catch (error) {
+            console.warn('Existing game data is invalid JSON; starting with fresh data.', error);
+        }
+
+        const mergedData = {
+            ...existingData,
             player: this.player,
             money: this.money,
             item_storage: this.item_storage,
             recycled_ids: this.recycled_ids,
             mold_level: this.mold_level,
             luck_level: this.luck_level,
-            auto_sell_threshold: gameSettings.auto_sell_threshold,
+            auto_sell_threshold: (typeof gameSettings !== 'undefined' && gameSettings) ? gameSettings.auto_sell_threshold : 100,
             level_exp: this.level_exp,
-            item_id_counter: this.item_id_counter
+            item_id_counter: this.item_id_counter,
+            sell_area: this.sell_area,
+            schema_version: GAME_DATA_SCHEMA_VERSION
         };
-        
-        localStorage.setItem(`gameData_${this.username}`, JSON.stringify(data));
-        gameSettings.saveSettings(this.username);
+
+        localStorage.setItem(key, JSON.stringify(mergedData));
+        if (gameSettings) {
+            gameSettings.saveSettings(this.username);
+        }
         return true;
     }
     
     // Load game
     loadGame() {
-        const saved = localStorage.getItem(`gameData_${this.username}`);
+        const key = `gameData_${this.username}`;
+        const saved = localStorage.getItem(key);
         if (saved) {
-            const data = JSON.parse(saved);
-            this.player = data.player || { level: 1, exp: 0, equipped: null };
-            this.money = data.money || 0;
-            this.item_storage = data.item_storage || [];
-            this.recycled_ids = data.recycled_ids || [];
-            this.mold_level = data.mold_level || 1;
-            this.luck_level = data.luck_level || 1;
-            this.level_exp = data.level_exp || 0;
-            this.item_id_counter = data.item_id_counter || 0;
-            this.recalculate();
-            return true;
+            try {
+                const parsed = JSON.parse(saved);
+                const defaultData = getDefaultGameData();
+                const data = { ...defaultData, ...parsed };
+
+                this.player = data.player || { level: 1, exp: 0, equipped: null };
+                this.money = typeof data.money === 'number' ? data.money : defaultData.money;
+                this.item_storage = Array.isArray(data.item_storage) ? data.item_storage : [];
+                this.recycled_ids = Array.isArray(data.recycled_ids) ? data.recycled_ids : [];
+                this.mold_level = typeof data.mold_level === 'number' ? data.mold_level : defaultData.mold_level;
+                this.luck_level = typeof data.luck_level === 'number' ? data.luck_level : defaultData.luck_level;
+                this.level_exp = typeof data.level_exp === 'number' ? data.level_exp : defaultData.level_exp;
+                this.item_id_counter = typeof data.item_id_counter === 'number' ? data.item_id_counter : defaultData.item_id_counter;
+                this.sell_area = Array.isArray(data.sell_area) ? data.sell_area : [];
+
+                if (gameSettings && typeof data.auto_sell_threshold === 'number') {
+                    gameSettings.auto_sell_threshold = data.auto_sell_threshold;
+                }
+
+                this.recalculate();
+                return true;
+            } catch (error) {
+                console.error('Failed to load saved game data:', error);
+            }
         }
         return false;
     }

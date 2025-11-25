@@ -814,6 +814,37 @@ nav button.active {
     font-size: 0.9em;
 }
 
+.stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.stat-col {
+    flex: 1;
+    min-width: 220px;
+}
+
+.stat-combat {
+    min-width: 140px;
+    text-align: right;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+}
+
+.stat-bold {
+    font-weight: 600;
+}
+
+.stat-meta {
+    font-size: 0.8em;
+    color: #555;
+}
+
 .game-actions-panel {
     display: flex;
     flex-direction: column;

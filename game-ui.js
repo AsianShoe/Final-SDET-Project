@@ -297,15 +297,29 @@ function updatePlayerStats() {
     if (!display || !gameCore) return;
     
     const expNeeded = gameCore.requiredExp(gameCore.player.level);
+    const levelScale = gameCore.getLevelScale();
+    const equipped = gameCore.player.equipped;
+    const scaledDamage = equipped ? Math.round(equipped.Damage * levelScale) : 0;
+    const scaledDefense = equipped ? Math.round(equipped.Defense * levelScale) : 0;
+
     display.innerHTML = `
-        <div class="stat-item"><strong>Level:</strong> ${gameCore.player.level}</div>
-        <div class="stat-item"><strong>EXP:</strong> ${Math.round(gameCore.player.exp)} / ${expNeeded}</div>
-        <div class="stat-item"><strong>Money:</strong> $${gameCore.money.toFixed(2)}</div>
-        <div class="stat-item"><strong>Rarity Level:</strong> ${gameCore.luck_level}</div>
-        <div class="stat-item"><strong>Rarity Multiplier:</strong> ${gameCore.luck_multiplier}</div>
-        <div class="stat-item"><strong>Mold Level:</strong> ${gameCore.mold_level}</div>
-        <div class="stat-item"><strong>Mold Multiplier:</strong> ${gameCore.mold_mult}</div>
-        ${gameCore.player.equipped ? `<div class="stat-item"><strong>Equipped:</strong> ${gameCore.player.equipped.Rarity} ${gameCore.player.equipped.Mold} ${gameCore.player.equipped.Weapon}</div>` : '<div class="stat-item"><strong>Equipped:</strong> None</div>'}
+        <div class="stat-row">
+            <div class="stat-col">
+                <div class="stat-item"><strong>Level:</strong> ${gameCore.player.level}</div>
+                <div class="stat-item"><strong>EXP:</strong> ${Math.round(gameCore.player.exp)} / ${expNeeded}</div>
+                <div class="stat-item"><strong>Money:</strong> $${gameCore.money.toFixed(2)}</div>
+                <div class="stat-item"><strong>Rarity Level:</strong> ${gameCore.luck_level}</div>
+                <div class="stat-item"><strong>Rarity Multiplier:</strong> ${gameCore.luck_multiplier}</div>
+                <div class="stat-item"><strong>Mold Level:</strong> ${gameCore.mold_level}</div>
+                <div class="stat-item"><strong>Mold Multiplier:</strong> ${gameCore.mold_mult}</div>
+                ${equipped ? `<div class="stat-item"><strong>Equipped:</strong> ${equipped.Rarity} ${equipped.Mold} ${equipped.Weapon}</div>` : '<div class="stat-item"><strong>Equipped:</strong> None</div>'}
+            </div>
+            <div class="stat-combat">
+                <div class="stat-item stat-bold">Damage: ${scaledDamage}</div>
+                <div class="stat-item stat-bold">Defense: ${scaledDefense}</div>
+                <div class="stat-meta">Level scale: ${levelScale.toFixed(2)}x</div>
+            </div>
+        </div>
     `;
 }
 

@@ -26,6 +26,10 @@ function getDefaultGameData() {
 
 const RARITY_COST_EXPONENT = 1.25;
 const RARITY_COST_DIVISOR = 160;
+const POST50_LUCK_EXP = 1.01;
+const POST50_MOLD_EXP = 1.012;
+const POST50_LUCK_SCALE = 0.95;
+const POST50_MOLD_SCALE = 0.98;
 
 function getRarityCostScaling(rarityName) {
     if (!Array.isArray(RARITY_TIERS)) return 1;
@@ -101,13 +105,13 @@ class GameCore {
         if (this.luck_level <= 50) {
             this.luck_multiplier = Math.round((1 + (Math.log1p(this.luck_level) - PRE50_OFFSET) * levelMult) * 100) / 100;
         } else {
-            this.luck_multiplier = Math.round(Math.pow(this.luck_level, 1.01) * levelMult);
+            this.luck_multiplier = Math.round(Math.pow(this.luck_level, POST50_LUCK_EXP) * levelMult * POST50_LUCK_SCALE);
         }
 
         if (this.mold_level <= 50) {
             this.mold_mult = Math.round((1 + (Math.log1p(this.mold_level) - PRE50_OFFSET) * levelMult) * 100) / 100;
         } else {
-            this.mold_mult = Math.round(Math.pow(this.mold_level, 1.015) * levelMult);
+            this.mold_mult = Math.round(Math.pow(this.mold_level, POST50_MOLD_EXP) * levelMult * POST50_MOLD_SCALE);
         }
         
         this.luck_multiplier = Number((Math.round(this.luck_multiplier * levelScale * 100) / 100).toFixed(2));

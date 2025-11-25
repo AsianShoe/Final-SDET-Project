@@ -93,11 +93,21 @@ class GameCore {
     updateLuckMult() {
         const levelMult = 1 + (this.player.level / 100);
         
-        const luckBase = (levelMult / 3) + Math.log1p(this.luck_level) * 0.4 + (this.luck_level / 180);
-        const moldBase = (levelMult / 3) + Math.log1p(this.mold_level) * 0.4 + (this.mold_level / 200);
-
-        this.luck_multiplier = Number((luckBase * LUCK_MULT_WEIGHT).toFixed(2));
-        this.mold_mult = Number(Math.max(this.luck_multiplier + 0.15, moldBase * MOLD_MULT_WEIGHT).toFixed(2));
+        let luckRaw;
+        if (this.luck_level <= 50) {
+            luckRaw = 1 + Math.log1p(this.luck_level) * levelMult - Math.log1p(1) * levelMult;
+        } else {
+            luckRaw = Math.pow(this.luck_level, 1.01) * levelMult;
+        }
+        this.luck_multiplier = Math.round(luckRaw * LUCK_MULT_WEIGHT * 100) / 100;
+        
+        let moldRaw;
+        if (this.mold_level <= 50) {
+            moldRaw = 1 + Math.log1p(this.mold_level) * levelMult - Math.log1p(1) * levelMult;
+        } else {
+            moldRaw = Math.pow(this.mold_level, 1.015) * levelMult;
+        }
+        this.mold_mult = Math.round(moldRaw * MOLD_MULT_WEIGHT * 100) / 100;
         
         this.enemy_luck_multiplier = Math.round((Math.pow(levelMult, 2.5) - 1 + 1) * 100) / 100;
         this.player_luck_multiplier = levelMult;

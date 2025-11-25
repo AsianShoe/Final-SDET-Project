@@ -88,7 +88,6 @@ function buildGameUI() {
         <div class="game-container">
             <div class="game-header">
                 <h2>RNG Game</h2>
-                <button id="game-save-btn" class="game-btn">Save Game</button>
             </div>
             
             <div class="game-main-simple">
@@ -226,12 +225,6 @@ function setupEventHandlers() {
             } else if (e.target.id === 'btn-settings' || e.target.closest('#btn-settings')) {
                 e.preventDefault();
                 showSettings();
-            } else if (e.target.id === 'game-save-btn' || e.target.closest('#game-save-btn')) {
-                e.preventDefault();
-                if (gameCore) {
-                    gameCore.saveGame();
-                    showNotification('Game saved!', 'success');
-                }
             }
         });
     }
@@ -243,7 +236,6 @@ function setupEventHandlers() {
     const btnAreas = document.getElementById('btn-areas');
     const btnEquip = document.getElementById('btn-equip');
     const btnSettings = document.getElementById('btn-settings');
-    const btnSave = document.getElementById('game-save-btn');
     
     if (btnStorage) btnStorage.addEventListener('click', () => showStorage());
     if (btnSellArea) btnSellArea.addEventListener('click', () => showSellArea());
@@ -251,12 +243,6 @@ function setupEventHandlers() {
     if (btnAreas) btnAreas.addEventListener('click', () => showAreas());
     if (btnEquip) btnEquip.addEventListener('click', () => showEquip());
     if (btnSettings) btnSettings.addEventListener('click', () => showSettings());
-    if (btnSave) btnSave.addEventListener('click', () => {
-        if (gameCore) {
-            gameCore.saveGame();
-            alert('Game saved!');
-        }
-    });
     
     // Close modals
     document.querySelectorAll('.game-modal-close').forEach(btn => {

@@ -175,6 +175,25 @@ function buildGameUI() {
                 <div id="combat-display"></div>
             </div>
         </div>
+        
+        <!-- Custom Notification Modal -->
+        <div id="notification-modal" class="game-modal">
+            <div class="game-modal-content notification-content">
+                <div id="notification-message"></div>
+                <button id="notification-ok-btn" class="game-btn">OK</button>
+            </div>
+        </div>
+        
+        <!-- Custom Confirmation Modal -->
+        <div id="confirmation-modal" class="game-modal">
+            <div class="game-modal-content confirmation-content">
+                <div id="confirmation-message"></div>
+                <div class="confirmation-buttons">
+                    <button id="confirmation-yes-btn" class="game-btn">Yes</button>
+                    <button id="confirmation-no-btn" class="game-btn game-btn-secondary">No</button>
+                </div>
+            </div>
+        </div>
     `;
     
     gamePage.innerHTML = gameHTML;
@@ -211,7 +230,7 @@ function setupEventHandlers() {
                 e.preventDefault();
                 if (gameCore) {
                     gameCore.saveGame();
-                    alert('Game saved!');
+                    showNotification('Game saved!', 'success');
                 }
             }
         });
@@ -592,7 +611,7 @@ function equipItem(itemId) {
     
     updatePlayerStats();
     showEquip();
-    alert(`Equipped ${item.Rarity} ${item.Mold} ${item.Weapon}!`);
+    showNotification(`Equipped ${item.Rarity} ${item.Mold} ${item.Weapon}!`, 'success');
 }
 
 function unequipWeapon() {
@@ -612,23 +631,28 @@ function unequipWeapon() {
     
     updatePlayerStats();
     showEquip();
-    alert('Weapon unequipped!');
+    showNotification('Weapon unequipped!', 'success');
 }
 
 function sellItem(itemId) {
     const item = gameCore.item_storage.find(i => i.ID === itemId);
     if (!item) return;
     
-    if (confirm(`Sell ${item.Rarity} ${item.Mold} ${item.Weapon} for $${item.Price.toFixed(2)}?`)) {
-        gameCore.item_storage = gameCore.item_storage.filter(i => i.ID !== itemId);
-        gameCore.sell_area.push({
-            item: item,
-            time_added: Date.now() / 1000,
-            timer: 30
-        });
-        gameCore.saveGame();
-        showStorage();
-    }
+    showConfirmation(
+        `Sell ${item.Rarity} ${item.Mold} ${item.Weapon} for $${item.Price.toFixed(2)}?`,
+        () => {
+            // User confirmed - sell the item
+            gameCore.item_storage = gameCore.item_storage.filter(i => i.ID !== itemId);
+            gameCore.sell_area.push({
+                item: item,
+                time_added: Date.now() / 1000,
+                timer: 30
+            });
+            gameCore.saveGame();
+            showStorage();
+            showNotification(`Item sent to sell area. Will be sold in 30 seconds.`, 'success');
+        }
+    );
 }
 
 function removeFromSellArea(itemId) {
@@ -641,7 +665,7 @@ function removeFromSellArea(itemId) {
     gameCore.saveGame();
     
     showSellArea();
-    alert('Item removed from sell area!');
+    showNotification('Item removed from sell area!', 'success');
 }
 
 function purchaseMoldUpgrades() {
@@ -653,9 +677,9 @@ function purchaseMoldUpgrades() {
         gameCore.saveGame();
         updatePlayerStats();
         showUpgrades();
-        alert(result.message);
+        showNotification(result.message, 'success');
     } else {
-        alert(result.message);
+        showNotification(result.message, 'error');
     }
 }
 
@@ -668,9 +692,9 @@ function purchaseLuckUpgrades() {
         gameCore.saveGame();
         updatePlayerStats();
         showUpgrades();
-        alert(result.message);
+        showNotification(result.message, 'success');
     } else {
-        alert(result.message);
+        showNotification(result.message, 'error');
     }
 }
 
@@ -679,19 +703,19 @@ function enterArea(areaIndex) {
     const [areaName, areaLuckMult, areaEliteMult, levelReq, dropItems] = area;
     
     if (gameCore.player.level < levelReq) {
-        alert(`You must be at least level ${levelReq} to enter ${areaName}.`);
+        showNotification(`You must be at least level ${levelReq} to enter ${areaName}.`, 'error');
         return;
     }
     
     if (!gameCore.player.equipped) {
-        alert('You cannot fight without a weapon. Please equip one first.');
+        showNotification('You cannot fight without a weapon. Please equip one first.', 'error');
         showEquip();
         return;
     }
     
     const enemies = gameCore.spawned_enemies[areaName] || [];
     if (enemies.length === 0) {
-        alert(`There are no enemies in ${areaName}.`);
+        showNotification(`There are no enemies in ${areaName}.`, 'info');
         return;
     }
     
@@ -725,7 +749,7 @@ function fightEnemy(areaIndex, enemyIndex) {
     const enemy = enemies[enemyIndex];
     
     if (!enemy) {
-        alert('Enemy no longer exists!');
+        showNotification('Enemy no longer exists!', 'error');
         document.getElementById('combat-modal').style.display = 'none';
         return;
     }
@@ -733,17 +757,17 @@ function fightEnemy(areaIndex, enemyIndex) {
     const result = gameCore.fightEnemy(areaName, enemy, area[4]);
     
     if (result.victory) {
-        let message = `You defeated the ${enemy.name}!\n`;
-        message += `You earned ${result.exp} EXP and $${result.cash}!\n`;
+        let message = `You defeated the ${enemy.name}! `;
+        message += `You earned ${result.exp} EXP and $${result.cash}! `;
         if (result.levelsGained > 0) {
-            message += `You leveled up ${result.levelsGained} time(s)!`;
+            message += `You leveled up ${result.levelsGained} time(s)! `;
         }
         if (result.drop) {
-            message += `\nYou got a ${result.drop.Mold} ${result.drop.Rarity} ${result.drop.Weapon}!`;
+            message += `You got a ${result.drop.Mold} ${result.drop.Rarity} ${result.drop.Weapon}!`;
         }
-        alert(message);
+        showNotification(message, 'success');
     } else {
-        alert(result.message || 'You were defeated!');
+        showNotification(result.message || 'You were defeated!', 'error');
     }
     
     gameCore.saveGame();
@@ -759,10 +783,10 @@ function updateAutoSellThreshold() {
     if (value > 0) {
         gameSettings.setAutoSellThreshold(value);
         gameSettings.saveSettings(gameCore.username);
-        alert(`Auto sell threshold updated to 1 in ${value}`);
+        showNotification(`Auto sell threshold updated to 1 in ${value}`, 'success');
         showSettings();
     } else {
-        alert('Invalid value!');
+        showNotification('Invalid value!', 'error');
     }
 }
 
@@ -772,7 +796,7 @@ function updateStorageSort() {
     
     gameSettings.setStorageSort(value);
     gameSettings.saveSettings(gameCore.username);
-    alert(`Storage sort updated to ${value}`);
+    showNotification(`Storage sort updated to ${value}`, 'success');
     showSettings();
 }
 
@@ -784,10 +808,75 @@ function cleanupGame() {
     }
 }
 
+// Custom notification system
+function showNotification(message, type = 'info') {
+    const modal = document.getElementById('notification-modal');
+    const messageEl = document.getElementById('notification-message');
+    const okBtn = document.getElementById('notification-ok-btn');
+    
+    if (!modal || !messageEl || !okBtn) {
+        // Fallback to alert if modal not ready
+        alert(message);
+        return;
+    }
+    
+    messageEl.textContent = message;
+    messageEl.className = `notification-message notification-${type}`;
+    
+    okBtn.onclick = () => {
+        modal.style.display = 'none';
+    };
+    
+    modal.style.display = 'block';
+}
+
+// Custom confirmation system
+function showConfirmation(message, onConfirm, onCancel = null) {
+    const modal = document.getElementById('confirmation-modal');
+    const messageEl = document.getElementById('confirmation-message');
+    const yesBtn = document.getElementById('confirmation-yes-btn');
+    const noBtn = document.getElementById('confirmation-no-btn');
+    
+    if (!modal || !messageEl || !yesBtn || !noBtn) {
+        // Fallback to confirm if modal not ready
+        if (confirm(message)) {
+            if (onConfirm) onConfirm();
+        } else {
+            if (onCancel) onCancel();
+        }
+        return;
+    }
+    
+    messageEl.textContent = message;
+    
+    yesBtn.onclick = () => {
+        modal.style.display = 'none';
+        if (onConfirm) onConfirm();
+    };
+    
+    noBtn.onclick = () => {
+        modal.style.display = 'none';
+        if (onCancel) onCancel();
+    };
+    
+    // Close on X button
+    const closeBtn = modal.querySelector('.game-modal-close');
+    if (closeBtn) {
+        closeBtn.onclick = () => {
+            modal.style.display = 'none';
+            if (onCancel) onCancel();
+        };
+    }
+    
+    modal.style.display = 'block';
+}
+
 // Make functions globally accessible
 if (typeof window !== 'undefined') {
     window.initializeGameUI = initializeGameUI;
     window.updateAllDisplays = updateAllDisplays;
+    window.showNotification = showNotification;
+    window.showConfirmation = showConfirmation;
     console.log('Game UI functions loaded successfully');
 }
 

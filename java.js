@@ -380,15 +380,56 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // --- Notification System for Calendar ---
+    function showAppNotification(message, type = 'info') {
+        // Check if game notification system is available
+        if (typeof window.showNotification === 'function') {
+            window.showNotification(message, type);
+            return;
+        }
+        
+        // Fallback: create a simple notification
+        let notification = document.getElementById('app-notification');
+        if (!notification) {
+            notification = document.createElement('div');
+            notification.id = 'app-notification';
+            notification.className = 'app-notification';
+            document.body.appendChild(notification);
+        }
+        
+        notification.textContent = message;
+        notification.className = `app-notification app-notification-${type}`;
+        notification.style.display = 'block';
+        
+        setTimeout(() => {
+            notification.style.display = 'none';
+        }, 3000);
+    }
+    
+    function showAppConfirmation(message, onConfirm, onCancel = null) {
+        // Check if game confirmation system is available
+        if (typeof window.showConfirmation === 'function') {
+            window.showConfirmation(message, onConfirm, onCancel);
+            return;
+        }
+        
+        // Fallback to browser confirm
+        if (confirm(message)) {
+            if (onConfirm) onConfirm();
+        } else {
+            if (onCancel) onCancel();
+        }
+    }
+
     // --- Logout Handler ---
     logoutBtn.addEventListener('click', () => {
-        if (confirm('Are you sure you want to logout?')) {
+        showAppConfirmation('Are you sure you want to logout?', () => {
             clearSession();
             showAuth();
             // Clear forms
             loginFormElement.reset();
             registerFormElement.reset();
-        }
+        });
     });
 
     // --- Tab Switching ---
@@ -803,14 +844,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     const taskId = parseInt(e.target.getAttribute('data-task-id'));
                     const taskDateKey = e.target.getAttribute('data-date');
                     
-                    if (confirm('Are you sure you want to delete this task?')) {
+                    showAppConfirmation('Are you sure you want to delete this task?', () => {
                         tasks[taskDateKey] = tasks[taskDateKey].filter(t => t.id !== taskId);
                         if (tasks[taskDateKey].length === 0) {
                             delete tasks[taskDateKey];
                         }
                         saveTasks();
                         renderCalendar();
-                    }
+                    });
                 }
             });
 
@@ -930,17 +971,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const dateKey = selectedDateInput.value;
 
         if (description === "") {
-            alert("Please enter a task description.");
+            showAppNotification("Please enter a task description.", 'error');
             return;
         }
 
         if (!hour || !minute || !ampm) {
-            alert("Please select a complete time (hour, minute, and AM/PM).");
+            showAppNotification("Please select a complete time (hour, minute, and AM/PM).", 'error');
             return;
         }
 
         if (!dateKey) {
-            alert("Please select a date.");
+            showAppNotification("Please select a date.", 'error');
             return;
         }
 

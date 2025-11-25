@@ -1104,6 +1104,106 @@ nav button.active {
     margin: 5px 0;
 }
 
+/* Notification and Confirmation Modals */
+.notification-content,
+.confirmation-content {
+    text-align: center;
+    min-width: 300px;
+    max-width: 500px;
+}
+
+.notification-message {
+    padding: 20px;
+    font-size: 1.1em;
+    margin-bottom: 20px;
+    border-radius: 5px;
+}
+
+.notification-info {
+    background-color: #d1ecf1;
+    color: #0c5460;
+    border-left: 4px solid #17a2b8;
+}
+
+.notification-success {
+    background-color: #d4edda;
+    color: #155724;
+    border-left: 4px solid #28a745;
+}
+
+.notification-error {
+    background-color: #f8d7da;
+    color: #721c24;
+    border-left: 4px solid #dc3545;
+}
+
+#notification-ok-btn {
+    width: 100px;
+    margin: 0 auto;
+}
+
+.confirmation-buttons {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    margin-top: 20px;
+}
+
+.confirmation-buttons button {
+    min-width: 100px;
+}
+
+.game-btn-secondary {
+    background-color: #6c757d;
+}
+
+.game-btn-secondary:hover {
+    background-color: #5a6268;
+}
+
+/* App Notification (for calendar page) */
+.app-notification {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 15px 20px;
+    border-radius: 5px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 10000;
+    max-width: 400px;
+    display: none;
+    animation: slideInRight 0.3s ease-out;
+}
+
+@keyframes slideInRight {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+.app-notification-info {
+    background-color: #d1ecf1;
+    color: #0c5460;
+    border-left: 4px solid #17a2b8;
+}
+
+.app-notification-success {
+    background-color: #d4edda;
+    color: #155724;
+    border-left: 4px solid #28a745;
+}
+
+.app-notification-error {
+    background-color: #f8d7da;
+    color: #721c24;
+    border-left: 4px solid #dc3545;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .game-main {

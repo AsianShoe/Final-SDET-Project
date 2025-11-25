@@ -261,7 +261,8 @@ class GameCore {
     
     // Combat system
     fightEnemy(areaName, enemy, dropItems) {
-        let playerHealth = 100;
+        const levelScale = this.getLevelScale();
+        let playerHealth = 100 * levelScale;
         let enemyHealth = enemy.health;
         const weapon = this.player.equipped;
         
@@ -270,7 +271,8 @@ class GameCore {
             enemyHealth -= damageDealt;
             
             if (enemyHealth <= 0) {
-                this.money += enemy.cash;
+                const scaledCash = Math.round(enemy.cash * levelScale);
+                this.money += scaledCash;
                 this.player.exp += enemy.exp;
                 const levelsGained = this.checkLevelUp();
                 
@@ -287,7 +289,7 @@ class GameCore {
                     return { 
                         victory: true, 
                         exp: enemy.exp, 
-                        cash: enemy.cash, 
+                        cash: scaledCash, 
                         levelsGained,
                         drop: drop 
                     };
@@ -296,13 +298,14 @@ class GameCore {
                 return { 
                     victory: true, 
                     exp: enemy.exp, 
-                    cash: enemy.cash, 
+                    cash: scaledCash, 
                     levelsGained 
                 };
             }
             
             const enemyAttack = enemy.damage;
-            const damageTaken = Math.max(0, Math.floor(enemyAttack / weapon.Defense));
+            const weaponDefense = weapon ? weapon.Defense : 1;
+            const damageTaken = Math.max(0, Math.floor(enemyAttack / (weaponDefense * levelScale)));
             playerHealth -= damageTaken;
             
             if (playerHealth <= 0) {
@@ -367,13 +370,15 @@ class GameCore {
         const currentTime = Date.now() / 1000;
         const soldItems = [];
         let soldSomething = false;
+        const levelScale = this.getLevelScale();
         
         for (let i = this.sell_area.length - 1; i >= 0; i--) {
             const entry = this.sell_area[i];
             if (currentTime >= entry.time_added + entry.timer) {
                 const item = entry.item;
                 const expMult = this.rarityExpMult(item.Rarity) * this.moldExpMult(item.Mold);
-                this.money += item.Price;
+                const scaledPrice = Number((item.Price * levelScale).toFixed(2));
+                this.money += scaledPrice;
                 this.player.exp += item.Price * expMult;
                 const levelsGained = this.checkLevelUp();
                 soldItems.push({ item, levelsGained });

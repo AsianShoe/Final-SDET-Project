@@ -24,6 +24,18 @@ function getDefaultGameData() {
     };
 }
 
+const RARITY_COST_EXPONENT = 1.25;
+const RARITY_COST_DIVISOR = 160;
+
+function getRarityCostScaling(rarityName) {
+    if (!Array.isArray(RARITY_TIERS)) return 1;
+    const tierIndex = RARITY_TIERS.findIndex(r => r[0] === rarityName);
+    if (tierIndex < 0) return 1;
+    const rank = RARITY_TIERS.length - tierIndex;
+    const scale = 1 + Math.pow(rank, RARITY_COST_EXPONENT) / RARITY_COST_DIVISOR;
+    return Math.min(scale, 1.85);
+}
+
 class GameCore {
     constructor(username) {
         this.username = username;
@@ -159,10 +171,11 @@ class GameCore {
         
         const { rarityResult, moldResult, combinedActual, rarity, moldInfo } = this.rngGen();
         
-        const basePrice = 5;
-        const rarityMult = rarity[2];
+        const basePrice = 4.5;
+        const rarityMult = rarity[2] * 0.95;
         const moldMultPrice = moldInfo[2];
-        const price = basePrice * rarityMult * moldMultPrice;
+        const costScale = getRarityCostScaling(rarity[1]);
+        const price = basePrice * rarityMult * moldMultPrice * costScale;
         
         const damage = weaponBaseDamage * rarity[3];
         const defense = weaponBaseDefense * (rarity[3] * 0.5);
@@ -224,12 +237,13 @@ class GameCore {
             this.item_id_counter += 1;
         }
         
+        const costScale = getRarityCostScaling(rarityName);
         return {
             ID: itemId,
             RNG: enemy.RNG,
             Mold: moldResult.tier,
             Rarity: rarityName,
-            Price: 5 * priceMult * moldMultPrice,
+            Price: 5 * priceMult * moldMultPrice * costScale,
             Weapon: weaponChoice,
             Damage: damageBase * damageMult,
             Defense: defenseBase * (damageMult * 0.5),

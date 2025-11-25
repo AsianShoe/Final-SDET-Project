@@ -66,10 +66,10 @@ function generateEnemy(areaChoice, enemyLuckMultiplier) {
     let finalCashMult = cashMultiplier;
     
     if (isElite) {
-        finalHealthMult *= 20;
-        finalDamageMult *= 10;
-        finalExpMult *= 20;
-        finalCashMult *= 35;
+        finalHealthMult *= 14;
+        finalDamageMult *= 7;
+        finalExpMult *= 16;
+        finalCashMult *= 30;
     }
     
     if (areaName === "Champions Hall") {

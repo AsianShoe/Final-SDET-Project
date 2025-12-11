@@ -1,4 +1,25 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // --- Theme Management (load immediately) ---
+    const THEME_STORAGE_KEY = 'appTheme';
+    
+    function getTheme() {
+        const saved = localStorage.getItem(THEME_STORAGE_KEY);
+        return saved || 'light'; // Default to light theme
+    }
+    
+    function applyTheme(theme) {
+        const root = document.documentElement;
+        if (theme === 'dark') {
+            root.classList.add('dark-theme');
+        } else {
+            root.classList.remove('dark-theme');
+        }
+    }
+    
+    // Load theme immediately on page load
+    const initialTheme = getTheme();
+    applyTheme(initialTheme);
+    
     // --- Authentication State ---
     const AUTH_TOKEN_KEY = 'authToken';
     const CURRENT_USER_KEY = 'currentUser';
@@ -178,6 +199,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const loginFormElement = document.getElementById('login-form-element');
     const registerFormElement = document.getElementById('register-form-element');
     const logoutBtn = document.getElementById('logout-btn');
+    
+    // Verify all authentication elements exist
+    if (!tabLogin || !tabRegister || !loginForm || !registerForm) {
+        console.error('Critical authentication UI elements not found!');
+        if (authContainer) {
+            authContainer.innerHTML = '<div class="auth-box"><h1>Error</h1><p>Critical UI elements missing. Please refresh the page.</p></div>';
+        }
+    }
 
     // --- Authentication UI Functions ---
     function showAuth() {
@@ -200,12 +229,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function switchTab(tab) {
+        if (!tabLogin || !tabRegister || !loginForm || !registerForm) {
+            console.error('Cannot switch tabs: UI elements not found');
+            return;
+        }
+        
         if (tab === 'login') {
             tabLogin.classList.add('active');
             tabRegister.classList.remove('active');
             loginForm.classList.add('active');
             registerForm.classList.remove('active');
-        } else {
+        } else if (tab === 'register') {
             tabLogin.classList.remove('active');
             tabRegister.classList.add('active');
             loginForm.classList.remove('active');
@@ -382,13 +416,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Notification System for Calendar ---
     function showAppNotification(message, type = 'info') {
-        // Check if game notification system is available
-        if (typeof window.showNotification === 'function') {
-            window.showNotification(message, type);
-            return;
-        }
-        
-        // Fallback: create a simple notification
+        // Always use the custom calendar notification system
         let notification = document.getElementById('app-notification');
         if (!notification) {
             notification = document.createElement('div');
@@ -407,37 +435,93 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     function showAppConfirmation(message, onConfirm, onCancel = null) {
-        // Check if game confirmation system is available
-        if (typeof window.showConfirmation === 'function') {
-            window.showConfirmation(message, onConfirm, onCancel);
-            return;
+        // Create custom confirmation modal
+        let confirmModal = document.getElementById('app-confirmation-modal');
+        if (!confirmModal) {
+            confirmModal = document.createElement('div');
+            confirmModal.id = 'app-confirmation-modal';
+            confirmModal.className = 'task-input-modal';
+            confirmModal.innerHTML = `
+                <div class="modal-content">
+                    <span class="close-modal">&times;</span>
+                    <h3>Confirm</h3>
+                    <p id="app-confirmation-message"></p>
+                    <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
+                        <button id="app-confirmation-cancel" class="game-btn-small" style="background-color: #6c757d;">Cancel</button>
+                        <button id="app-confirmation-confirm" class="game-btn-small" style="background-color: #007bff;">Confirm</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(confirmModal);
         }
         
-        // Fallback to browser confirm
-        if (confirm(message)) {
+        const messageEl = document.getElementById('app-confirmation-message');
+        const confirmBtn = document.getElementById('app-confirmation-confirm');
+        const cancelBtn = document.getElementById('app-confirmation-cancel');
+        const closeBtn = confirmModal.querySelector('.close-modal');
+        
+        messageEl.textContent = message;
+        confirmModal.style.display = 'block';
+        
+        // Remove old event listeners by cloning
+        const newConfirmBtn = confirmBtn.cloneNode(true);
+        const newCancelBtn = cancelBtn.cloneNode(true);
+        const newCloseBtn = closeBtn.cloneNode(true);
+        
+        confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+        cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
+        closeBtn.parentNode.replaceChild(newCloseBtn, closeBtn);
+        
+        newConfirmBtn.onclick = () => {
+            confirmModal.style.display = 'none';
             if (onConfirm) onConfirm();
-        } else {
+        };
+        
+        newCancelBtn.onclick = () => {
+            confirmModal.style.display = 'none';
             if (onCancel) onCancel();
-        }
+        };
+        
+        newCloseBtn.onclick = () => {
+            confirmModal.style.display = 'none';
+            if (onCancel) onCancel();
+        };
     }
 
     // --- Logout Handler ---
-    logoutBtn.addEventListener('click', () => {
-        showAppConfirmation('Are you sure you want to logout?', () => {
-            clearSession();
-            showAuth();
-            // Clear forms
-            loginFormElement.reset();
-            registerFormElement.reset();
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', () => {
+            showAppConfirmation('Are you sure you want to logout?', () => {
+                clearSession();
+                showAuth();
+                // Clear forms
+                if (loginFormElement) loginFormElement.reset();
+                if (registerFormElement) registerFormElement.reset();
+            });
         });
-    });
+    }
 
     // --- Tab Switching ---
-    tabLogin.addEventListener('click', () => switchTab('login'));
-    tabRegister.addEventListener('click', () => switchTab('register'));
+    if (tabLogin && tabRegister && loginForm && registerForm) {
+        tabLogin.addEventListener('click', function(e) {
+            e.preventDefault();
+            switchTab('login');
+        });
+        tabRegister.addEventListener('click', function(e) {
+            e.preventDefault();
+            switchTab('register');
+        });
+    } else {
+        console.error('Tab switching elements not found:', {
+            tabLogin: !!tabLogin,
+            tabRegister: !!tabRegister,
+            loginForm: !!loginForm,
+            registerForm: !!registerForm
+        });
+    }
 
     // --- App UI Elements (only accessible after authentication) ---
-    let calendarPage, shopPage, gamePage, navCalendar, navShop, navGame, backToCalendarBtn;
+    let calendarPage, shopPage, gamePage, settingsPage, navCalendar, navShop, navGame, navSettings, backToCalendarBtn;
     let taskForm, taskModal, taskDetailsModal, calendarGrid, currentMonthYear;
     let prevMonthBtn, nextMonthBtn, selectedDateInput, selectedDateDisplay;
     let detailsDateDisplay, dateTasksList, closeModalBtns;
@@ -457,9 +541,11 @@ document.addEventListener('DOMContentLoaded', () => {
         calendarPage = document.getElementById('calendar-page');
         shopPage = document.getElementById('shop-page');
         gamePage = document.getElementById('game-page');
+        settingsPage = document.getElementById('settings-page');
         navCalendar = document.getElementById('nav-calendar');
         navShop = document.getElementById('nav-shop');
         navGame = document.getElementById('nav-game');
+        navSettings = document.getElementById('nav-settings');
         backToCalendarBtn = document.getElementById('back-to-calendar');
         
         // Set up navigation listeners immediately
@@ -481,6 +567,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 showPage('game-page');
             });
         }
+        if (navSettings) {
+            navSettings.addEventListener('click', (e) => {
+                e.preventDefault();
+                showPage('settings-page');
+            });
+        }
         if (backToCalendarBtn) {
             backToCalendarBtn.addEventListener('click', (e) => {
                 e.preventDefault();
@@ -499,6 +591,8 @@ document.addEventListener('DOMContentLoaded', () => {
         detailsDateDisplay = document.getElementById('details-date-display');
         dateTasksList = document.getElementById('date-tasks-list');
         closeModalBtns = document.querySelectorAll('.close-modal');
+        const calendarHelpBtn = document.getElementById('calendar-help-btn');
+        const calendarHelpModal = document.getElementById('calendar-help-modal');
 
         // Load tasks from localStorage (user-specific)
         const currentUser = getCurrentUser();
@@ -512,6 +606,704 @@ document.addEventListener('DOMContentLoaded', () => {
         if (savedHolidaysCache) {
             holidaysCache = JSON.parse(savedHolidaysCache);
         }
+        
+        // Check past days for completion on page load
+        checkPastDaysCompletion();
+        
+        // Set up interval to check past days completion every hour
+        setInterval(() => {
+            checkPastDaysCompletion();
+        }, 60 * 60 * 1000); // Check every hour
+
+        // Update points display on shop page
+        function updatePointsDisplay() {
+            const pointsDisplay = document.getElementById('points-display');
+            if (pointsDisplay) {
+                const pointsData = getPoints();
+                pointsDisplay.textContent = pointsData.points;
+            }
+        }
+
+        // Update shop display
+        function updateShopDisplay() {
+            const luckMultiplierLevel = getShopLuckMultiplierLevel();
+            const luckMultiplierValue = getShopLuckMultiplierValue();
+            const cost = getShopLuckMultiplierCost();
+            
+            const purchaseBtn = document.getElementById('purchase-luck-multiplier-btn');
+            const multiplierDisplay = document.getElementById('luck-multiplier-display');
+            const costDisplay = document.getElementById('luck-multiplier-cost');
+            
+            if (purchaseBtn) {
+                purchaseBtn.textContent = `Upgrade (${cost} points)`;
+            }
+            if (multiplierDisplay) {
+                multiplierDisplay.textContent = `${luckMultiplierValue}x`;
+            }
+            if (costDisplay) {
+                costDisplay.textContent = `${cost} points`;
+            }
+
+            // Update spawn interval display
+            const spawnIntervalValue = getSpawnIntervalValue();
+            const spawnIntervalCost = getSpawnIntervalCost();
+            const canUpgrade = canUpgradeSpawnInterval();
+            
+            const spawnPurchaseBtn = document.getElementById('purchase-spawn-interval-btn');
+            const spawnIntervalDisplay = document.getElementById('spawn-interval-display');
+            const spawnIntervalCostDisplay = document.getElementById('spawn-interval-cost');
+            
+            if (spawnPurchaseBtn) {
+                if (canUpgrade) {
+                    spawnPurchaseBtn.textContent = `Upgrade (${spawnIntervalCost} points)`;
+                    spawnPurchaseBtn.disabled = false;
+                } else {
+                    spawnPurchaseBtn.textContent = 'Max Level';
+                    spawnPurchaseBtn.disabled = true;
+                }
+            }
+            if (spawnIntervalDisplay) {
+                spawnIntervalDisplay.textContent = `${spawnIntervalValue.toFixed(1)} seconds`;
+            }
+            if (spawnIntervalCostDisplay) {
+                spawnIntervalCostDisplay.textContent = `${spawnIntervalCost} points`;
+            }
+        }
+
+        // Setup shop purchase handlers
+        function setupShopHandlers() {
+            const purchaseLuckBtn = document.getElementById('purchase-luck-multiplier-btn');
+            if (purchaseLuckBtn) {
+                purchaseLuckBtn.onclick = function() {
+                    const cost = getShopLuckMultiplierCost();
+                    const pointsData = getPoints();
+                    
+                    if (pointsData.points < cost) {
+                        showAppNotification(`You do not have enough points to make this purchase. You need ${cost} points.`, 'error');
+                        return;
+                    }
+                    
+                    if (upgradeShopLuckMultiplier()) {
+                        const newLevel = getShopLuckMultiplierLevel();
+                        const newValue = getShopLuckMultiplierValue();
+                        showAppNotification(`Luck Multiplier upgraded to Level ${newLevel} (${newValue}x)!`, 'success');
+                        // Update game display if game is active
+                        if (typeof gameCore !== 'undefined' && gameCore) {
+                            gameCore.updateShopLuckMultiplier();
+                            if (typeof updatePlayerStats === 'function') {
+                                updatePlayerStats();
+                            }
+                            if (typeof showUpgrades === 'function') {
+                                showUpgrades();
+                            }
+                        }
+                    } else {
+                        showAppNotification('You do not have enough points to make this purchase.', 'error');
+                    }
+                };
+            }
+
+            const purchaseSpawnIntervalBtn = document.getElementById('purchase-spawn-interval-btn');
+            if (purchaseSpawnIntervalBtn) {
+                purchaseSpawnIntervalBtn.onclick = function() {
+                    const cost = getSpawnIntervalCost();
+                    const pointsData = getPoints();
+                    
+                    if (pointsData.points < cost) {
+                        showAppNotification(`You do not have enough points to make this purchase. You need ${cost} points.`, 'error');
+                        return;
+                    }
+                    
+                    if (!canUpgradeSpawnInterval()) {
+                        showAppNotification('Item spawn speed is already at maximum level!', 'error');
+                        return;
+                    }
+                    
+                    if (upgradeSpawnInterval()) {
+                        const newLevel = getSpawnIntervalLevel();
+                        const newValue = getSpawnIntervalValue();
+                        showAppNotification(`Item Spawn Speed upgraded to Level ${newLevel} (${newValue.toFixed(1)} seconds)!`, 'success');
+                        // Update game display if game is active
+                        if (typeof gameCore !== 'undefined' && gameCore) {
+                            gameCore.updateSpawnInterval();
+                        }
+                    } else {
+                        showAppNotification('You do not have enough points to make this purchase.', 'error');
+                    }
+                };
+            }
+        }
+
+    // --- Theme Management (for settings page) ---
+    function getTheme() {
+        const saved = localStorage.getItem(THEME_STORAGE_KEY);
+        return saved || 'light'; // Default to light theme
+    }
+    
+    function saveTheme(theme) {
+        localStorage.setItem(THEME_STORAGE_KEY, theme);
+    }
+    
+    function applyTheme(theme) {
+        const root = document.documentElement;
+        if (theme === 'dark') {
+            root.classList.add('dark-theme');
+        } else {
+            root.classList.remove('dark-theme');
+        }
+    }
+    
+    // --- Email Verification Functions ---
+    const VERIFICATION_CODE_STORAGE_KEY = 'emailVerificationCodes';
+    const VERIFICATION_CODE_EXPIRY = 10 * 60 * 1000; // 10 minutes in milliseconds
+    
+    function generateVerificationCode() {
+        // Generate a random 6-digit code
+        return Math.floor(100000 + Math.random() * 900000).toString();
+    }
+    
+    function storeVerificationCode(email, code) {
+        const codes = JSON.parse(localStorage.getItem(VERIFICATION_CODE_STORAGE_KEY) || '{}');
+        codes[email] = {
+            code: code,
+            timestamp: Date.now(),
+            expiresAt: Date.now() + VERIFICATION_CODE_EXPIRY
+        };
+        localStorage.setItem(VERIFICATION_CODE_STORAGE_KEY, JSON.stringify(codes));
+    }
+    
+    function getVerificationCode(email) {
+        const codes = JSON.parse(localStorage.getItem(VERIFICATION_CODE_STORAGE_KEY) || '{}');
+        const codeData = codes[email];
+        if (!codeData) return null;
+        
+        // Check if code has expired
+        if (Date.now() > codeData.expiresAt) {
+            delete codes[email];
+            localStorage.setItem(VERIFICATION_CODE_STORAGE_KEY, JSON.stringify(codes));
+            return null;
+        }
+        
+        return codeData.code;
+    }
+    
+    function clearVerificationCode(email) {
+        const codes = JSON.parse(localStorage.getItem(VERIFICATION_CODE_STORAGE_KEY) || '{}');
+        delete codes[email];
+        localStorage.setItem(VERIFICATION_CODE_STORAGE_KEY, JSON.stringify(codes));
+    }
+    
+    function validateEmail(email) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return emailRegex.test(email);
+    }
+    
+    async function sendVerificationEmail(email, code) {
+        // Try to use EmailJS if available, otherwise use fallback
+        try {
+            // Check if EmailJS is loaded
+            if (typeof emailjs !== 'undefined' && emailjs.send) {
+                // EmailJS configuration - user needs to set these up
+                const serviceId = 'YOUR_SERVICE_ID'; // User needs to configure
+                const templateId = 'YOUR_TEMPLATE_ID'; // User needs to configure
+                const publicKey = 'YOUR_PUBLIC_KEY'; // User needs to configure
+                
+                // For now, we'll use a fallback since EmailJS needs configuration
+                // In production, uncomment the following and configure EmailJS:
+                /*
+                await emailjs.send(serviceId, templateId, {
+                    to_email: email,
+                    verification_code: code,
+                    from_name: 'RNG Calendar'
+                }, publicKey);
+                */
+                
+                // Fallback: Show code in console and alert (for development/testing)
+                console.log(`Verification code for ${email}: ${code}`);
+                console.log('To enable email sending, configure EmailJS in java.js');
+                return { success: true, method: 'console' };
+            } else {
+                // Fallback method: show in console
+                console.log(`Verification code for ${email}: ${code}`);
+                console.log('EmailJS not configured. Code shown in console for testing.');
+                return { success: true, method: 'console' };
+            }
+        } catch (error) {
+            console.error('Error sending verification email:', error);
+            // Fallback: show code in console
+            console.log(`Verification code for ${email}: ${code}`);
+            return { success: true, method: 'console', error: error.message };
+        }
+    }
+    
+    async function handleSendVerificationEmail() {
+        const emailInput = document.getElementById('email-input');
+        const emailError = document.getElementById('email-error');
+        const emailMessage = document.getElementById('email-message');
+        
+        if (!emailInput) return;
+        
+        // Sanitize and trim email
+        let email = sanitizeInput(emailInput.value);
+        email = email.trim().toLowerCase();
+        
+        // Clear previous messages
+        if (emailError) {
+            emailError.textContent = '';
+            emailError.style.display = 'none';
+        }
+        if (emailMessage) {
+            emailMessage.textContent = '';
+            emailMessage.className = 'email-message';
+        }
+        
+        // Validate email
+        if (!email) {
+            if (emailError) {
+                emailError.textContent = 'Please enter an email address';
+                emailError.style.display = 'block';
+            }
+            return;
+        }
+        
+        if (!validateEmail(email)) {
+            if (emailError) {
+                emailError.textContent = 'Please enter a valid email address';
+                emailError.style.display = 'block';
+            }
+            return;
+        }
+        
+        // Generate and store verification code
+        const code = generateVerificationCode();
+        storeVerificationCode(email, code);
+        
+        // Send verification email
+        const sendBtn = document.getElementById('send-verification-btn');
+        if (sendBtn) {
+            sendBtn.disabled = true;
+            sendBtn.textContent = 'Sending...';
+        }
+        
+        try {
+            const result = await sendVerificationEmail(email, code);
+            
+            if (result.success) {
+                // Show success message
+                if (emailMessage) {
+                    if (result.method === 'console') {
+                        emailMessage.textContent = `Verification code sent! Check the browser console (F12) for the code: ${code}`;
+                        emailMessage.className = 'email-message success';
+                    } else {
+                        emailMessage.textContent = 'Verification code sent to your email! Please check your inbox.';
+                        emailMessage.className = 'email-message success';
+                    }
+                }
+                
+                // Rebuild settings page to show verification code input
+                setTimeout(() => {
+                    buildSettingsPage();
+                    setupSettingsHandlers();
+                }, 500);
+            } else {
+                throw new Error('Failed to send verification email');
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            if (emailMessage) {
+                emailMessage.textContent = 'Error sending verification email. Please try again.';
+                emailMessage.className = 'email-message error';
+            }
+        } finally {
+            if (sendBtn) {
+                sendBtn.disabled = false;
+                sendBtn.textContent = 'Send Verification Email';
+            }
+        }
+    }
+    
+    async function handleResendVerificationCode() {
+        const emailInput = document.getElementById('email-input');
+        if (!emailInput) return;
+        
+        const email = emailInput.value.trim();
+        if (!email || !validateEmail(email)) {
+            showAppNotification('Please enter a valid email address first', 'error');
+            return;
+        }
+        
+        // Generate new code
+        const code = generateVerificationCode();
+        storeVerificationCode(email, code);
+        
+        // Send email
+        const resendBtn = document.getElementById('resend-code-btn');
+        if (resendBtn) {
+            resendBtn.disabled = true;
+            resendBtn.textContent = 'Resending...';
+        }
+        
+        try {
+            const result = await sendVerificationEmail(email, code);
+            if (result.success) {
+                if (result.method === 'console') {
+                    showAppNotification(`New verification code sent! Check console: ${code}`, 'success');
+                } else {
+                    showAppNotification('New verification code sent to your email!', 'success');
+                }
+            }
+        } catch (error) {
+            showAppNotification('Error resending verification code. Please try again.', 'error');
+        } finally {
+            if (resendBtn) {
+                resendBtn.disabled = false;
+                resendBtn.textContent = 'Resend Code';
+            }
+        }
+    }
+    
+    function handleVerifyCode() {
+        const emailInput = document.getElementById('email-input');
+        const codeInput = document.getElementById('verification-code-input');
+        const codeError = document.getElementById('verification-code-error');
+        const emailMessage = document.getElementById('email-message');
+        
+        if (!emailInput || !codeInput) return;
+        
+        const email = emailInput.value.trim();
+        const enteredCode = codeInput.value.trim();
+        
+        // Clear previous messages
+        if (codeError) {
+            codeError.textContent = '';
+            codeError.style.display = 'none';
+        }
+        if (emailMessage) {
+            emailMessage.textContent = '';
+            emailMessage.className = 'email-message';
+        }
+        
+        // Validate code format
+        if (!enteredCode) {
+            if (codeError) {
+                codeError.textContent = 'Please enter the verification code';
+                codeError.style.display = 'block';
+            }
+            return;
+        }
+        
+        if (!/^\d{6}$/.test(enteredCode)) {
+            if (codeError) {
+                codeError.textContent = 'Verification code must be 6 digits';
+                codeError.style.display = 'block';
+            }
+            return;
+        }
+        
+        // Get stored code
+        const storedCode = getVerificationCode(email);
+        
+        if (!storedCode) {
+            if (codeError) {
+                codeError.textContent = 'Verification code has expired. Please request a new one.';
+                codeError.style.display = 'block';
+            }
+            return;
+        }
+        
+        // Verify code
+        if (enteredCode !== storedCode) {
+            if (codeError) {
+                codeError.textContent = 'Invalid verification code. Please try again.';
+                codeError.style.display = 'block';
+            }
+            return;
+        }
+        
+        // Code is valid - save email to user account
+        const currentUser = getCurrentUser();
+        if (!currentUser) {
+            showAppNotification('No user logged in', 'error');
+            return;
+        }
+        
+        const users = getUsers();
+        if (!users[currentUser]) {
+            showAppNotification('User not found', 'error');
+            return;
+        }
+        
+        // Update user with verified email
+        users[currentUser].email = email;
+        users[currentUser].emailVerified = true;
+        saveUsers(users);
+        
+        // Clear verification code
+        clearVerificationCode(email);
+        
+        // Show success message
+        if (emailMessage) {
+            emailMessage.textContent = 'Email verified and associated with your account!';
+            emailMessage.className = 'email-message success';
+        }
+        
+        showAppNotification('Email verified successfully!', 'success');
+        
+        // Rebuild settings page to show verified status
+        setTimeout(() => {
+            buildSettingsPage();
+            setupSettingsHandlers();
+        }, 500);
+    }
+    
+    function handleChangeEmail() {
+        const currentUser = getCurrentUser();
+        if (!currentUser) return;
+        
+        const users = getUsers();
+        const user = users[currentUser];
+        if (user && user.email) {
+            // Clear email and verification status
+            delete user.email;
+            delete user.emailVerified;
+            saveUsers(users);
+            
+            // Rebuild settings page
+            buildSettingsPage();
+            setupSettingsHandlers();
+        }
+    }
+    
+    // --- Build Settings Page ---
+    function buildSettingsPage() {
+        const settingsPage = document.getElementById('settings-page');
+        if (!settingsPage) return;
+        
+        const currentTheme = getTheme();
+        const currentUser = getCurrentUser();
+        const users = getUsers();
+        const user = currentUser ? users[currentUser] : null;
+        const userEmail = user && user.email ? user.email : '';
+        const emailVerified = user && user.emailVerified === true;
+        
+        settingsPage.innerHTML = `
+            <div class="settings-container">
+                <div class="settings-section">
+                    <h3>Appearance</h3>
+                    <div class="settings-item">
+                        <h4>Theme</h4>
+                        <p class="settings-description">Choose between light and dark theme for the application.</p>
+                        <div class="theme-selector">
+                            <label class="theme-option">
+                                <input type="radio" name="theme" id="theme-light" value="light" ${currentTheme === 'light' ? 'checked' : ''}>
+                                <span>Light</span>
+                            </label>
+                            <label class="theme-option">
+                                <input type="radio" name="theme" id="theme-dark" value="dark" ${currentTheme === 'dark' ? 'checked' : ''}>
+                                <span>Dark</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="settings-section">
+                    <h3>Email Verification</h3>
+                    <div class="settings-item">
+                        <h4>Associate Email with Account</h4>
+                        <p class="settings-description">
+                            Add an email address to your account. You'll receive a verification code to confirm your email.
+                        </p>
+                        ${emailVerified && userEmail ? `
+                            <div class="email-status verified">
+                                <span class="email-status-icon">✓</span>
+                                <span class="email-status-text">Email verified: <strong>${userEmail}</strong></span>
+                            </div>
+                            <button id="change-email-btn" class="secondary-btn">Change Email</button>
+                        ` : `
+                            <div class="email-verification-container">
+                                <div class="form-group">
+                                    <label for="email-input">Email Address</label>
+                                    <input type="email" id="email-input" placeholder="Enter your email address" value="${userEmail || ''}" ${emailVerified ? 'disabled' : ''}>
+                                    <span class="error-message" id="email-error"></span>
+                                </div>
+                                ${!emailVerified && userEmail ? `
+                                    <div class="form-group">
+                                        <label for="verification-code-input">Verification Code</label>
+                                        <input type="text" id="verification-code-input" placeholder="Enter 6-digit code" maxlength="6" pattern="[0-9]{6}">
+                                        <span class="error-message" id="verification-code-error"></span>
+                                        <small class="verification-hint">Check your email for the 6-digit verification code</small>
+                                    </div>
+                                    <div class="verification-actions">
+                                        <button id="verify-code-btn" class="primary-btn">Verify Code</button>
+                                        <button id="resend-code-btn" class="secondary-btn">Resend Code</button>
+                                    </div>
+                                ` : `
+                                    <button id="send-verification-btn" class="primary-btn">Send Verification Email</button>
+                                `}
+                            </div>
+                        `}
+                        <div id="email-message" class="email-message"></div>
+                    </div>
+                </div>
+                
+                <div class="settings-section">
+                    <h3>Account Management</h3>
+                    <div class="settings-item">
+                        <h4>Delete Account</h4>
+                        <p class="settings-description">
+                            Permanently delete your account and all associated data. This includes:
+                        </p>
+                        <ul style="color: var(--text-secondary, #6c757d); margin: 10px 0 20px 20px; line-height: 1.8;">
+                            <li>Your username and password</li>
+                            <li>All calendar tasks and events</li>
+                            <li>All points and shop purchases</li>
+                            <li>All game progress, items, and upgrades</li>
+                            <li>All game settings</li>
+                        </ul>
+                        <p class="settings-description" style="color: var(--error-color, #dc3545); font-weight: bold;">
+                            ⚠️ This action cannot be undone!
+                        </p>
+                        <button id="delete-account-btn" class="delete-account-btn">Delete Account</button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    // --- Settings Handlers ---
+    function setupSettingsHandlers() {
+        const deleteAccountBtn = document.getElementById('delete-account-btn');
+        if (deleteAccountBtn) {
+            deleteAccountBtn.onclick = function() {
+                showAppConfirmation(
+                    'Are you sure you want to delete your account? This will permanently remove ALL your data including:\n\n' +
+                    '• Your username and password\n' +
+                    '• All calendar tasks\n' +
+                    '• All points and shop purchases\n' +
+                    '• All game progress and items\n\n' +
+                    'This action CANNOT be undone!',
+                    () => {
+                        deleteAccount();
+                    }
+                );
+            };
+        }
+        
+        // Email verification handlers
+        const sendVerificationBtn = document.getElementById('send-verification-btn');
+        if (sendVerificationBtn) {
+            sendVerificationBtn.onclick = handleSendVerificationEmail;
+        }
+        
+        const verifyCodeBtn = document.getElementById('verify-code-btn');
+        if (verifyCodeBtn) {
+            verifyCodeBtn.onclick = handleVerifyCode;
+        }
+        
+        const resendCodeBtn = document.getElementById('resend-code-btn');
+        if (resendCodeBtn) {
+            resendCodeBtn.onclick = handleResendVerificationCode;
+        }
+        
+        const changeEmailBtn = document.getElementById('change-email-btn');
+        if (changeEmailBtn) {
+            changeEmailBtn.onclick = handleChangeEmail;
+        }
+        
+        // Allow Enter key to submit verification code and restrict to numbers only
+        const verificationCodeInput = document.getElementById('verification-code-input');
+        if (verificationCodeInput) {
+            // Only allow numeric input
+            verificationCodeInput.addEventListener('input', function(e) {
+                this.value = this.value.replace(/[^0-9]/g, '');
+            });
+            
+            // Allow Enter key to submit
+            verificationCodeInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    handleVerifyCode();
+                }
+            });
+        }
+        
+        // Theme selector handlers
+        const themeLight = document.getElementById('theme-light');
+        const themeDark = document.getElementById('theme-dark');
+        
+        if (themeLight && themeDark) {
+            // Set current theme selection
+            const currentTheme = getTheme();
+            if (currentTheme === 'dark') {
+                themeDark.checked = true;
+            } else {
+                themeLight.checked = true;
+            }
+            
+            // Add change listeners
+            themeLight.addEventListener('change', function() {
+                if (this.checked) {
+                    saveTheme('light');
+                    applyTheme('light');
+                }
+            });
+            
+            themeDark.addEventListener('change', function() {
+                if (this.checked) {
+                    saveTheme('dark');
+                    applyTheme('dark');
+                }
+            });
+        }
+    }
+
+    function deleteAccount() {
+        const currentUser = getCurrentUser();
+        if (!currentUser) {
+            showAppNotification('No user is currently logged in.', 'error');
+            return;
+        }
+
+        try {
+            // Remove user from users object
+            const users = getUsers();
+            if (users[currentUser]) {
+                // Clean up email verification code if user has an email
+                const userEmail = users[currentUser].email;
+                if (userEmail) {
+                    clearVerificationCode(userEmail);
+                }
+                
+                delete users[currentUser];
+                saveUsers(users);
+            }
+
+            // Remove all user-specific localStorage data
+            localStorage.removeItem(`calendarTasks_${currentUser}`);
+            localStorage.removeItem(`calendarPoints_${currentUser}`);
+            localStorage.removeItem(`gameData_${currentUser}`);
+            localStorage.removeItem(`gameSettings_${currentUser}`);
+
+            // Clear session (auth token and current user)
+            clearSession();
+
+            // Stop game loops if game is running
+            if (typeof gameCore !== 'undefined' && gameCore && gameCore.stopGameLoops) {
+                gameCore.stopGameLoops();
+            }
+
+            // Show auth page
+            showAuth();
+            
+            // Clear forms
+            if (loginFormElement) loginFormElement.reset();
+            if (registerFormElement) registerFormElement.reset();
+
+            showAppNotification('Your account has been permanently deleted.', 'success');
+        } catch (error) {
+            console.error('Error deleting account:', error);
+            showAppNotification('An error occurred while deleting your account. Please try again.', 'error');
+        }
+    }
 
     // --- Page Transition Logic ---
     function showPage(pageId) {
@@ -533,6 +1325,9 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (pageId === 'shop-page') {
             shopPage.classList.add('active');
             navShop.classList.add('active');
+            updatePointsDisplay();
+            updateShopDisplay();
+            setupShopHandlers();
         } else if (pageId === 'game-page') {
             gamePage.classList.add('active');
             navGame.classList.add('active');
@@ -608,6 +1403,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 `;
             }
+        } else if (pageId === 'settings-page') {
+            if (settingsPage) {
+                settingsPage.classList.add('active');
+                buildSettingsPage();
+            }
+            if (navSettings) {
+                navSettings.classList.add('active');
+            }
+            setupSettingsHandlers();
         }
     }
 
@@ -627,6 +1431,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 e.preventDefault();
                 e.stopPropagation();
                 showPage('game-page');
+            } else if (e.target.id === 'nav-settings') {
+                e.preventDefault();
+                e.stopPropagation();
+                showPage('settings-page');
             }
         });
     }
@@ -662,6 +1470,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     console.error('showPage function not available');
                 }
+            } else if (e.target.id === 'nav-settings') {
+                e.preventDefault();
+                e.stopPropagation();
+                const showPageFunc = window.showPage || (typeof showPage !== 'undefined' ? showPage : null);
+                if (showPageFunc && typeof showPageFunc === 'function') {
+                    showPageFunc('settings-page');
+                } else {
+                    console.error('showPage function not available');
+                }
             }
         }
     }, true); // Use capture phase to catch events early
@@ -669,6 +1486,12 @@ document.addEventListener('DOMContentLoaded', () => {
         // --- Calendar Generation ---
         function formatDateKey(date) {
         return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    }
+
+    function isToday(dateKey) {
+        const today = new Date();
+        const todayKey = formatDateKey(today);
+        return dateKey === todayKey;
     }
 
     function formatDateDisplay(date) {
@@ -797,7 +1620,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 tasksPreview = tasksToShow.map(task => {
                     const timeDisplay = task.time ? formatTime(task.time) : '';
                     const timePart = timeDisplay ? `<span class="task-time-small">${timeDisplay}</span>` : '';
-                    return `<div class="task-preview-item" data-task-id="${task.id}" data-date="${dateKey}">
+                    const completedClass = task.completed ? 'completed' : '';
+                    const checkmarkIcon = task.completed ? '✓' : '○';
+                    return `<div class="task-preview-item ${completedClass}" data-task-id="${task.id}" data-date="${dateKey}">
+                        <button class="complete-task-small" data-task-id="${task.id}" data-date="${dateKey}" title="${task.completed ? 'Mark incomplete' : 'Mark complete'}">${checkmarkIcon}</button>
                         <div class="task-preview-content">
                             ${timePart}<span class="task-desc-small">${task.description}</span>
                         </div>
@@ -805,7 +1631,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>`;
                 }).join('');
                 if (dayTasks.length > 3) {
-                    tasksPreview += `<div class="task-preview-more">+${dayTasks.length - 3} more</div>`;
+                    tasksPreview += `<div class="task-preview-more" data-date="${dateKey}" style="cursor: pointer; text-decoration: underline;">+${dayTasks.length - 3} more</div>`;
                 }
             }
 
@@ -817,16 +1643,31 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             `;
 
-            // Add click handler to open task modal (but not if clicking on delete button)
+            // Add click handler to open task modal (but not if clicking on delete button or checkmark)
             dayCell.addEventListener('click', (e) => {
-                // Don't open modal if clicking on delete button
-                if (e.target.classList.contains('delete-task-small')) {
+                // Don't open modal if clicking on delete button or checkmark
+                if (e.target.classList.contains('delete-task-small') || e.target.classList.contains('complete-task-small')) {
                     return;
                 }
-                // Don't open modal if clicking inside a task preview item (except the delete button)
-                if (e.target.closest('.task-preview-item') && !e.target.classList.contains('delete-task-small')) {
+                // Don't open modal if clicking inside a task preview item (except the delete/checkmark buttons)
+                if (e.target.closest('.task-preview-item') && !e.target.classList.contains('delete-task-small') && !e.target.classList.contains('complete-task-small')) {
                     return;
                 }
+                
+                // Prevent adding tasks to past dates (but allow today and future dates)
+                const taskDate = new Date(date);
+                const today = new Date();
+                const todayStart = new Date(today);
+                todayStart.setHours(0, 0, 0, 0);
+                const taskDateStart = new Date(taskDate);
+                taskDateStart.setHours(0, 0, 0, 0);
+                
+                if (taskDateStart < todayStart) {
+                    showAppNotification('You cannot add tasks to past dates.', 'error');
+                    return;
+                }
+                // Allow today and future dates - time validation happens on form submit
+                
                 selectedDateInput.value = dateKey;
                 selectedDateDisplay.textContent = formatDateDisplay(date);
                 // Reset form to defaults
@@ -837,12 +1678,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 taskModal.style.display = 'block';
             });
 
-            // Add delete handler for task preview items
+            // Add delete and complete handlers for task preview items
             dayCell.addEventListener('click', (e) => {
-                if (e.target.classList.contains('delete-task-small')) {
+                // Check if click is on delete button or inside it
+                const deleteBtn = e.target.closest('.delete-task-small');
+                if (deleteBtn) {
                     e.stopPropagation(); // Prevent opening the modal
-                    const taskId = parseInt(e.target.getAttribute('data-task-id'));
-                    const taskDateKey = e.target.getAttribute('data-date');
+                    e.preventDefault();
+                    const taskId = parseInt(deleteBtn.getAttribute('data-task-id'));
+                    const taskDateKey = deleteBtn.getAttribute('data-date');
                     
                     showAppConfirmation('Are you sure you want to delete this task?', () => {
                         tasks[taskDateKey] = tasks[taskDateKey].filter(t => t.id !== taskId);
@@ -851,35 +1695,407 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                         saveTasks();
                         renderCalendar();
-                    });
+                    }, null);
+                    return;
+                }
+                
+                // Check if click is on complete button or inside it
+                const completeBtn = e.target.closest('.complete-task-small');
+                if (completeBtn) {
+                    e.stopPropagation(); // Prevent opening the modal
+                    e.preventDefault();
+                    const taskId = parseInt(completeBtn.getAttribute('data-task-id'));
+                    const taskDateKey = completeBtn.getAttribute('data-date');
+                    
+                    // Only allow completion of tasks from today
+                    if (!isToday(taskDateKey)) {
+                        showAppNotification('You can only complete tasks from today\'s date.', 'error');
+                        return;
+                    }
+                    
+                    const task = tasks[taskDateKey].find(t => t.id === taskId);
+                    if (task) {
+                        const wasCompleted = task.completed;
+                        task.completed = !task.completed;
+                        saveTasks();
+                        renderCalendar();
+                        
+                        // Award 1 point for completing a task (only when marking as completed, not uncompleting)
+                        if (task.completed && !wasCompleted) {
+                            awardTaskCompletionPoint(taskId);
+                        }
+                        
+                        // Check if all tasks for this day are completed (awards 5 points)
+                        checkDayCompletion(taskDateKey);
+                        // Also check if all tasks for the week are completed (only on Sunday, awards 25 points)
+                        checkWeekCompletion();
+                    }
+                    return;
                 }
             });
 
-            // Add double-click handler to view tasks
-            dayCell.addEventListener('dblclick', () => {
-                showTaskDetails(dateKey, date);
+            // Add click handler for "+X more" to view tasks
+            dayCell.addEventListener('click', (e) => {
+                if (e.target.classList.contains('task-preview-more')) {
+                    e.stopPropagation();
+                    const taskDateKey = e.target.getAttribute('data-date');
+                    if (taskDateKey) {
+                        showTaskDetails(taskDateKey, new Date(taskDateKey));
+                    }
+                }
             });
 
             calendarGrid.appendChild(dayCell);
         }
+    }
+
+    // --- Points System ---
+        function getPoints() {
+            const currentUser = getCurrentUser();
+            const saved = localStorage.getItem(`calendarPoints_${currentUser}`);
+            const defaultData = { points: 0, completedWeeks: [], completedDays: [], completedTasks: [], shop_luck_multiplier_level: 1, spawn_interval_level: 1 };
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                // Ensure new fields exist for backward compatibility
+                if (typeof parsed.spawn_interval_level === 'undefined') {
+                    parsed.spawn_interval_level = 1;
+                }
+                return { ...defaultData, ...parsed };
+            }
+            return defaultData;
         }
 
-        // --- Task Management ---
+        function savePoints(pointsData) {
+            const currentUser = getCurrentUser();
+            localStorage.setItem(`calendarPoints_${currentUser}`, JSON.stringify(pointsData));
+        }
+
+        function getShopLuckMultiplierLevel() {
+            const pointsData = getPoints();
+            return pointsData.shop_luck_multiplier_level || 1;
+        }
+
+        function getShopLuckMultiplierValue() {
+            return getShopLuckMultiplierLevel(); // Level 1 = 1x, Level 2 = 2x, etc.
+        }
+
+        function getShopLuckMultiplierCost() {
+            const level = getShopLuckMultiplierLevel();
+            return 5 + (level - 1) * 10; // Level 1: 5, Level 2: 15, Level 3: 25, etc.
+        }
+
+        function upgradeShopLuckMultiplier() {
+            const pointsData = getPoints();
+            const cost = getShopLuckMultiplierCost();
+            
+            if (pointsData.points < cost) {
+                return false; // Not enough points
+            }
+            
+            pointsData.points -= cost;
+            pointsData.shop_luck_multiplier_level = (pointsData.shop_luck_multiplier_level || 1) + 1;
+            savePoints(pointsData);
+            updatePointsDisplay();
+            updateShopDisplay();
+            
+            // Notify game core to update multipliers
+            if (typeof gameCore !== 'undefined' && gameCore) {
+                gameCore.updateShopLuckMultiplier();
+            }
+            
+            return true;
+        }
+
+        function getSpawnIntervalLevel() {
+            const pointsData = getPoints();
+            return pointsData.spawn_interval_level || 1;
+        }
+
+        function getSpawnIntervalValue() {
+            const level = getSpawnIntervalLevel();
+            // Level 1 = 5.0 seconds, each level reduces by 0.5, minimum 1.5
+            const interval = 5.0 - (level - 1) * 0.5;
+            return Math.max(interval, 1.5);
+        }
+
+        function getSpawnIntervalCost() {
+            const level = getSpawnIntervalLevel();
+            // Starts at 10, doubles each purchase: 10, 20, 40, 80, etc.
+            return 10 * Math.pow(2, level - 1);
+        }
+
+        function canUpgradeSpawnInterval() {
+            const interval = getSpawnIntervalValue();
+            return interval > 1.5; // Can upgrade if not at minimum
+        }
+
+        function upgradeSpawnInterval() {
+            const pointsData = getPoints();
+            const cost = getSpawnIntervalCost();
+            
+            if (pointsData.points < cost) {
+                return false; // Not enough points
+            }
+            
+            if (!canUpgradeSpawnInterval()) {
+                return false; // Already at minimum
+            }
+            
+            pointsData.points -= cost;
+            pointsData.spawn_interval_level = (pointsData.spawn_interval_level || 1) + 1;
+            savePoints(pointsData);
+            updatePointsDisplay();
+            updateShopDisplay();
+            
+            // Notify game core to update spawn interval
+            if (typeof gameCore !== 'undefined' && gameCore) {
+                gameCore.updateSpawnInterval();
+            }
+            
+            return true;
+        }
+
+        function addPoint() {
+            const pointsData = getPoints();
+            pointsData.points += 1;
+            savePoints(pointsData);
+            // Always update display when points are added
+            updatePointsDisplay();
+            return pointsData.points;
+        }
+
+        // Award 1 point for completing an individual task
+        function awardTaskCompletionPoint(taskId) {
+            const pointsData = getPoints();
+            
+            // Initialize completedTasks array if it doesn't exist
+            if (!pointsData.completedTasks) {
+                pointsData.completedTasks = [];
+            }
+            
+            // Check if we've already awarded points for this task
+            if (pointsData.completedTasks.includes(taskId)) {
+                return false; // Already awarded
+            }
+            
+            // Award 1 point and mark task as completed for points
+            pointsData.completedTasks.push(taskId);
+            pointsData.points += 1;
+            savePoints(pointsData);
+            updatePointsDisplay();
+            showAppNotification(`Task completed! You've earned 1 point! (Total: ${pointsData.points} points)`, 'success');
+            return true;
+        }
+
+        function spendPoint(amount = 1) {
+            const pointsData = getPoints();
+            if (pointsData.points < amount) {
+                return false; // Not enough points
+            }
+            pointsData.points -= amount;
+            savePoints(pointsData);
+            updatePointsDisplay(); // Update the display when points are spent
+            return true;
+        }
+
+        // Get Monday of the current week
+        function getWeekStart(date) {
+            const d = new Date(date);
+            const day = d.getDay();
+            const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Adjust when day is Sunday
+            return new Date(d.setDate(diff));
+        }
+
+        // Get week key (YYYY-MM-DD format for Monday)
+        function getWeekKey(date) {
+            const weekStart = getWeekStart(date);
+            return `${weekStart.getFullYear()}-${String(weekStart.getMonth() + 1).padStart(2, '0')}-${String(weekStart.getDate()).padStart(2, '0')}`;
+        }
+
+        // Check if all tasks for a single day are completed (awards 5 points)
+        function checkDayCompletion(taskDateKey) {
+            const dateKey = taskDateKey || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}`;
+            const pointsData = getPoints();
+            
+            // Check if we've already awarded points for this day
+            if (pointsData.completedDays && pointsData.completedDays.includes(dateKey)) {
+                return false;
+            }
+            
+            // Initialize completedDays array if it doesn't exist
+            if (!pointsData.completedDays) {
+                pointsData.completedDays = [];
+            }
+
+            // Get tasks for this day
+            const dayTasks = tasks[dateKey] || [];
+            
+            // If there are no tasks for this day, don't award points
+            if (dayTasks.length === 0) {
+                return false;
+            }
+            
+            // Check if all tasks for this day are completed
+            const allCompleted = dayTasks.every(task => task.completed);
+            
+            if (allCompleted) {
+                pointsData.completedDays.push(dateKey);
+                // Award 5 points for daily completion
+                pointsData.points += 5;
+                savePoints(pointsData);
+                updatePointsDisplay();
+                showAppNotification(`You've completed all your tasks for ${dateKey}! You've earned 5 points! (Total: ${pointsData.points} points)`, 'success');
+                return true;
+            }
+
+            return false;
+        }
+        
+        // Check all past days for completion (called periodically or on page load)
+        function checkPastDaysCompletion() {
+            const today = new Date();
+            const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+            
+            // Check all days in tasks that are before today
+            for (const dateKey in tasks) {
+                const [year, month, day] = dateKey.split('-').map(Number);
+                const taskDate = new Date(year, month - 1, day);
+                const taskDateStart = new Date(taskDate.getFullYear(), taskDate.getMonth(), taskDate.getDate());
+                
+                // Only check days that have ended
+                if (taskDateStart < todayStart) {
+                    checkDayCompletion(dateKey);
+                }
+            }
+        }
+
+        // Check if all tasks for the week are completed (awards 10 points)
+        function checkWeekCompletion() {
+            const today = new Date();
+            const dayOfWeek = today.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+            
+            // Only check on Sunday (day 0) to ensure the week is complete
+            if (dayOfWeek !== 0) {
+                return false;
+            }
+            
+            const weekKey = getWeekKey(today);
+            const pointsData = getPoints();
+            
+            // Check if we've already awarded points for this week
+            if (pointsData.completedWeeks.includes(weekKey)) {
+                return false;
+            }
+
+            // Get all days in the current week (Monday-Sunday)
+            const weekStart = getWeekStart(today);
+            const weekDays = [];
+            for (let i = 0; i < 7; i++) {
+                const day = new Date(weekStart);
+                day.setDate(weekStart.getDate() + i);
+                const dateKey = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`;
+                weekDays.push({ date: day, dateKey: dateKey });
+            }
+
+            // Check if all tasks for all days in the week are completed
+            // Only count tasks that were created during the week (Monday through Sunday)
+            let allCompleted = true;
+            let hasTasks = false;
+            const weekEndTime = today.getTime(); // Sunday (today) - current time
+            const weekStartTime = getWeekStart(today).getTime(); // Monday 00:00:00 - start of week
+
+            for (const dayInfo of weekDays) {
+                const dayTasks = tasks[dayInfo.dateKey] || [];
+                // Filter tasks to only include those created during the week
+                const validTasks = dayTasks.filter(task => {
+                    // If task has a created_at timestamp, check it was created during the week
+                    if (task.created_at) {
+                        // Task must be created between Monday 00:00 and current time on Sunday
+                        return task.created_at >= weekStartTime && task.created_at <= weekEndTime;
+                    }
+                    // For backward compatibility: tasks without timestamp
+                    // Only count if the day is part of the current week (Monday-Sunday)
+                    // Since we're checking on Sunday, all days Monday-Saturday are valid
+                    // For Sunday, we need to be careful - but since we prevent adding to past dates,
+                    // any Sunday task without a timestamp is likely old and shouldn't count
+                    const dayTime = dayInfo.date.getTime();
+                    const dayStart = new Date(dayInfo.date);
+                    dayStart.setHours(0, 0, 0, 0);
+                    // Only count tasks from days in the current week
+                    return dayStart.getTime() >= weekStartTime && dayStart.getTime() <= weekEndTime;
+                });
+                
+                if (validTasks.length > 0) {
+                    hasTasks = true;
+                    const allDayTasksCompleted = validTasks.every(task => task.completed);
+                    if (!allDayTasksCompleted) {
+                        allCompleted = false;
+                        break;
+                    }
+                }
+            }
+
+            // Only award if there are tasks and all are completed
+            // Note: Days with 0 tasks don't count against completion
+            if (hasTasks && allCompleted) {
+                pointsData.completedWeeks.push(weekKey);
+                // Award 25 points for weekly completion
+                pointsData.points += 25;
+                savePoints(pointsData);
+                updatePointsDisplay();
+                showAppNotification(`You've completed all your tasks for this week! You've earned 25 points! (Total: ${pointsData.points} points)`, 'success');
+                return true;
+            }
+
+            return false;
+        }
+
+    // --- Task Management ---
         function saveTasks() {
             const currentUser = getCurrentUser();
             localStorage.setItem(`calendarTasks_${currentUser}`, JSON.stringify(tasks));
         }
 
         function addTask(dateKey, description, time) {
-        if (!tasks[dateKey]) {
-            tasks[dateKey] = [];
-        }
-        tasks[dateKey].push({
-            id: Date.now(),
-            description: description,
-            time: time,
-            completed: false
-        });
+            // Parse dateKey (format: YYYY-MM-DD) properly to avoid timezone issues
+            const [year, month, day] = dateKey.split('-').map(Number);
+            const taskDate = new Date(year, month - 1, day); // month is 0-indexed in JS Date
+            
+            const today = new Date();
+            const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+            const taskDateStart = new Date(taskDate.getFullYear(), taskDate.getMonth(), taskDate.getDate());
+            
+            // Check if task is for a past date (before today)
+            if (taskDateStart < todayStart) {
+                showAppNotification('You cannot add tasks to past dates.', 'error');
+                return;
+            }
+            
+            // If task is for today, check if the time is in the future
+            if (taskDateStart.getTime() === todayStart.getTime() && time) {
+                const [hours, minutes] = time.split(':').map(Number);
+                const taskDateTime = new Date(taskDate);
+                taskDateTime.setHours(hours, minutes, 0, 0);
+                
+                // Compare with current time - must be in the future
+                if (taskDateTime <= today) {
+                    showAppNotification('You cannot add tasks to past times. Please select a future time.', 'error');
+                    return;
+                }
+            }
+            
+            // If task is for a future date, allow any time (no validation needed)
+            
+            if (!tasks[dateKey]) {
+                tasks[dateKey] = [];
+            }
+            tasks[dateKey].push({
+                id: Date.now(),
+                description: description,
+                time: time,
+                completed: false,
+                created_at: Date.now() // Store when task was created
+            });
         // Sort tasks by time
         tasks[dateKey].sort((a, b) => {
             if (!a.time) return 1;
@@ -951,60 +2167,102 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Convert hour/minute/AMPM to 24-hour format (HH:MM)
         function convertTo24Hour(hour, minute, ampm) {
-        let hour24 = parseInt(hour);
-        if (ampm === 'PM' && hour24 !== 12) {
-            hour24 += 12;
-        } else if (ampm === 'AM' && hour24 === 12) {
-            hour24 = 0;
+            let hour24 = parseInt(hour);
+            if (ampm === 'PM' && hour24 !== 12) {
+                hour24 += 12;
+            } else if (ampm === 'AM' && hour24 === 12) {
+                hour24 = 0;
+            }
+            return `${String(hour24).padStart(2, '0')}:${minute}`;
         }
-        return `${String(hour24).padStart(2, '0')}:${minute}`;
-    }
 
         // --- Event Handlers ---
-    taskForm.addEventListener('submit', function(event) {
-        event.preventDefault();
-        
-        const description = document.getElementById('task-description').value.trim();
-        const hour = document.getElementById('task-hour').value;
-        const minute = document.getElementById('task-minute').value;
-        const ampm = document.getElementById('task-ampm').value;
-        const dateKey = selectedDateInput.value;
+        if (taskForm) {
+            taskForm.addEventListener('submit', function(event) {
+                event.preventDefault();
+                
+                const description = document.getElementById('task-description').value.trim();
+                const hour = document.getElementById('task-hour').value;
+                const minute = document.getElementById('task-minute').value;
+                const ampm = document.getElementById('task-ampm').value;
+                const dateKey = selectedDateInput.value;
 
-        if (description === "") {
-            showAppNotification("Please enter a task description.", 'error');
-            return;
+                if (description === "") {
+                    showAppNotification("Please enter a task description.", 'error');
+                    return;
+                }
+
+                if (!hour || !minute || !ampm) {
+                    showAppNotification("Please select a complete time (hour, minute, and AM/PM).", 'error');
+                    return;
+                }
+
+                if (!dateKey) {
+                    showAppNotification("Please select a date.", 'error');
+                    return;
+                }
+
+                const time24 = convertTo24Hour(hour, minute, ampm);
+                
+                // Validate time if task is for today
+                const [year, month, day] = dateKey.split('-').map(Number);
+                const taskDate = new Date(year, month - 1, day); // month is 0-indexed
+                const today = new Date();
+                const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+                const taskDateStart = new Date(taskDate.getFullYear(), taskDate.getMonth(), taskDate.getDate());
+                
+                // Only validate time if task is for today
+                if (taskDateStart.getTime() === todayStart.getTime() && time24) {
+                    const [hours, minutes] = time24.split(':').map(Number);
+                    const taskDateTime = new Date(taskDate);
+                    taskDateTime.setHours(hours, minutes, 0, 0);
+                    
+                    // Compare with current time - must be in the future
+                    if (taskDateTime <= today) {
+                        showAppNotification('You cannot add tasks to past times. Please select a future time.', 'error');
+                        return;
+                    }
+                }
+                
+                // For future dates, no time validation needed - allow any time
+                addTask(dateKey, description, time24);
+                if (taskModal) taskModal.style.display = 'none';
+                document.getElementById('task-description').value = '';
+                document.getElementById('task-hour').value = '';
+                document.getElementById('task-minute').value = '';
+                document.getElementById('task-ampm').value = 'AM';
+            });
         }
-
-        if (!hour || !minute || !ampm) {
-            showAppNotification("Please select a complete time (hour, minute, and AM/PM).", 'error');
-            return;
-        }
-
-        if (!dateKey) {
-            showAppNotification("Please select a date.", 'error');
-            return;
-        }
-
-        const time24 = convertTo24Hour(hour, minute, ampm);
-        addTask(dateKey, description, time24);
-        taskModal.style.display = 'none';
-        document.getElementById('task-description').value = '';
-        document.getElementById('task-hour').value = '';
-        document.getElementById('task-minute').value = '';
-        document.getElementById('task-ampm').value = 'AM';
-    });
 
         // Handle task completion and deletion
-        dateTasksList.addEventListener('click', function(event) {
-        const taskId = parseInt(event.target.getAttribute('data-task-id'));
-        const dateKey = event.target.getAttribute('data-date');
+        if (dateTasksList) {
+            dateTasksList.addEventListener('click', function(event) {
+                const taskId = parseInt(event.target.getAttribute('data-task-id'));
+                const dateKey = event.target.getAttribute('data-date');
 
-        if (event.target.classList.contains('complete-btn')) {
+                if (event.target.classList.contains('complete-btn')) {
+            // Only allow completion of tasks from today
+            if (!isToday(dateKey)) {
+                showAppNotification('You can only complete tasks from today\'s date.', 'error');
+                return;
+            }
+            
             const task = tasks[dateKey].find(t => t.id === taskId);
             if (task) {
+                const wasCompleted = task.completed;
                 task.completed = !task.completed;
                 saveTasks();
                 showTaskDetails(dateKey, new Date(dateKey));
+                
+                // Award 1 point for completing a task (only when marking as completed, not uncompleting)
+                if (task.completed && !wasCompleted) {
+                    awardTaskCompletionPoint(taskId);
+                }
+                
+                // Check if all tasks for this day are completed (awards 5 points)
+                checkDayCompletion(dateKey);
+                // Also check if all tasks for the week are completed (only on Sunday, awards 25 points)
+                checkWeekCompletion();
             }
         } else if (event.target.classList.contains('delete-btn')) {
             tasks[dateKey] = tasks[dateKey].filter(t => t.id !== taskId);
@@ -1015,26 +2273,43 @@ document.addEventListener('DOMContentLoaded', () => {
             renderCalendar();
             showTaskDetails(dateKey, new Date(dateKey));
         }
-    });
+        });
+    }
 
         // Month navigation
-        prevMonthBtn.addEventListener('click', () => {
-            currentDate.setMonth(currentDate.getMonth() - 1);
-            renderCalendar();
-        });
+        if (prevMonthBtn) {
+            prevMonthBtn.addEventListener('click', () => {
+                currentDate.setMonth(currentDate.getMonth() - 1);
+                renderCalendar();
+            });
+        }
 
-        nextMonthBtn.addEventListener('click', () => {
-            currentDate.setMonth(currentDate.getMonth() + 1);
-            renderCalendar();
-        });
+        if (nextMonthBtn) {
+            nextMonthBtn.addEventListener('click', () => {
+                currentDate.setMonth(currentDate.getMonth() + 1);
+                renderCalendar();
+            });
+        }
+
+        // Help button handler
+        if (calendarHelpBtn && calendarHelpModal) {
+            calendarHelpBtn.addEventListener('click', () => {
+                calendarHelpModal.style.display = 'block';
+            });
+        }
 
         // Close modals
-        closeModalBtns.forEach(btn => {
-            btn.addEventListener('click', () => {
-                taskModal.style.display = 'none';
-                taskDetailsModal.style.display = 'none';
+        if (closeModalBtns && closeModalBtns.length > 0) {
+            closeModalBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    if (taskModal) taskModal.style.display = 'none';
+                    if (taskDetailsModal) taskDetailsModal.style.display = 'none';
+                    if (calendarHelpModal) {
+                        calendarHelpModal.style.display = 'none';
+                    }
+                });
             });
-        });
+        }
 
         // Close modals when clicking outside
         window.addEventListener('click', (event) => {
@@ -1043,6 +2318,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             if (event.target === taskDetailsModal) {
                 taskDetailsModal.style.display = 'none';
+            }
+            if (calendarHelpModal && event.target === calendarHelpModal) {
+                calendarHelpModal.style.display = 'none';
             }
         });
 

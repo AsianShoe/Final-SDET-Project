@@ -26,10 +26,6 @@ function getDefaultGameData() {
 
 const RARITY_COST_EXPONENT = 1.25;
 const RARITY_COST_DIVISOR = 160;
-const POST50_LUCK_EXP = 1.01;
-const POST50_MOLD_EXP = 1.012;
-const POST50_LUCK_SCALE = 0.95;
-const POST50_MOLD_SCALE = 0.98;
 
 function getRarityCostScaling(rarityName) {
     if (!Array.isArray(RARITY_TIERS)) return 1;
@@ -61,6 +57,7 @@ class GameCore {
         this.luck_multiplier = 1;
         this.enemy_luck_multiplier = 1;
         this.player_luck_multiplier = 1;
+        this.shop_luck_multiplier = 1; // Shop-purchased luck multiplier
         
         // Costs
         this.mold_cost = 3;
@@ -79,8 +76,11 @@ class GameCore {
         this.itemSpawnInterval = null;
         this.enemySpawnInterval = null;
         this.sellAreaInterval = null;
+        this.spawn_interval_level = 1; // Shop-purchased spawn interval level
         
         // Initialize
+        this.updateShopLuckMultiplier(); // Load shop multiplier first
+        this.updateSpawnInterval(); // Load spawn interval level
         this.recalculate();
     }
     
@@ -102,22 +102,17 @@ class GameCore {
         const PRE50_OFFSET = 1.05;
         const levelScale = this.getLevelScale();
 
-        if (this.luck_level <= 50) {
-            this.luck_multiplier = Math.round((1 + (Math.log1p(this.luck_level) - PRE50_OFFSET) * levelMult) * 100) / 100;
-        } else {
-            this.luck_multiplier = Math.round(Math.pow(this.luck_level, POST50_LUCK_EXP) * levelMult * POST50_LUCK_SCALE);
-        }
-
-        if (this.mold_level <= 50) {
-            this.mold_mult = Math.round((1 + (Math.log1p(this.mold_level) - PRE50_OFFSET) * levelMult) * 100) / 100;
-        } else {
-            this.mold_mult = Math.round(Math.pow(this.mold_level, POST50_MOLD_EXP) * levelMult * POST50_MOLD_SCALE);
-        }
+        // Always use the base equation for all levels
+        this.luck_multiplier = Math.round((1 + (Math.log1p(this.luck_level) - PRE50_OFFSET) * levelMult) * 100) / 100;
+        this.mold_mult = Math.round((1 + (Math.log1p(this.mold_level) - PRE50_OFFSET) * levelMult) * 100) / 100;
         
         this.luck_multiplier = Number((Math.round(this.luck_multiplier * levelScale * 100) / 100).toFixed(2));
         this.mold_mult = Number((Math.round(this.mold_mult * levelScale * 100) / 100).toFixed(2));
         this.enemy_luck_multiplier = Math.round((Math.pow(levelMult, 2.5) - 1 + 1) * 100) / 100;
         this.player_luck_multiplier = levelMult;
+        
+        // Ensure shop multiplier is loaded
+        this.updateShopLuckMultiplier();
     }
     
     // Check for level up
@@ -141,16 +136,69 @@ class GameCore {
         return Math.floor(baseExp * Math.pow(level, 1.05));
     }
     
+    // Update shop luck multiplier from localStorage
+    updateShopLuckMultiplier() {
+        try {
+            const saved = localStorage.getItem(`calendarPoints_${this.username}`);
+            if (saved) {
+                const pointsData = JSON.parse(saved);
+                this.shop_luck_multiplier = pointsData.shop_luck_multiplier_level || 1;
+            } else {
+                this.shop_luck_multiplier = 1;
+            }
+        } catch (e) {
+            this.shop_luck_multiplier = 1;
+        }
+    }
+    
+    // Update spawn interval level from localStorage
+    updateSpawnInterval() {
+        try {
+            const saved = localStorage.getItem(`calendarPoints_${this.username}`);
+            if (saved) {
+                const pointsData = JSON.parse(saved);
+                this.spawn_interval_level = pointsData.spawn_interval_level || 1;
+            } else {
+                this.spawn_interval_level = 1;
+            }
+        } catch (e) {
+            this.spawn_interval_level = 1;
+        }
+        
+        // If game loop is running, restart it with new interval
+        if (this.itemSpawnInterval) {
+            clearInterval(this.itemSpawnInterval);
+            const intervalMs = this.getSpawnIntervalValue() * 1000;
+            this.itemSpawnInterval = setInterval(() => {
+                this.itemGen();
+                if (typeof updateItemDisplay === 'function') {
+                    updateItemDisplay();
+                }
+            }, intervalMs);
+        }
+    }
+    
+    // Get spawn interval value in seconds
+    getSpawnIntervalValue() {
+        // Level 1 = 5.0 seconds, each level reduces by 0.5, minimum 1.5
+        const interval = 5.0 - (this.spawn_interval_level - 1) * 0.5;
+        return Math.max(interval, 1.5);
+    }
+    
     // Item generation
     rngGen() {
-        const maxRarityRoll = Math.floor(MAXIMUM_VALUE / Math.max(1, this.luck_multiplier));
-        const maxMoldRoll = Math.floor(MAXIMUM_VALUE / Math.max(1, this.mold_mult));
+        // Apply shop luck multiplier to base multipliers
+        const effectiveLuckMultiplier = this.luck_multiplier * this.shop_luck_multiplier;
+        const effectiveMoldMult = this.mold_mult * this.shop_luck_multiplier;
+        
+        const maxRarityRoll = Math.floor(MAXIMUM_VALUE / Math.max(1, effectiveLuckMultiplier));
+        const maxMoldRoll = Math.floor(MAXIMUM_VALUE / Math.max(1, effectiveMoldMult));
         
         const rarityRoll = Math.floor(Math.random() * Math.max(1, maxRarityRoll)) + 1;
         const moldRoll = Math.floor(Math.random() * Math.max(1, maxMoldRoll)) + 1;
         
-        const rarityResult = getTier(rarityRoll, RARITY_TIERS, this.luck_multiplier);
-        const moldResult = getTier(moldRoll, MOLD_TIERS, this.mold_mult);
+        const rarityResult = getTier(rarityRoll, RARITY_TIERS, effectiveLuckMultiplier);
+        const moldResult = getTier(moldRoll, MOLD_TIERS, effectiveMoldMult);
         
         const rarityPriceMultiplier = rarityResult.values[0];
         const rarityDamageMultiplier = rarityResult.values[1];
@@ -477,18 +525,21 @@ class GameCore {
     
     // Start game loops
     startGameLoops() {
-        // Item spawn loop (every 5 seconds)
+        // Item spawn loop (dynamic interval based on shop upgrade)
+        const intervalMs = this.getSpawnIntervalValue() * 1000;
         this.itemSpawnInterval = setInterval(() => {
             this.itemGen();
             if (typeof updateItemDisplay === 'function') {
                 updateItemDisplay();
             }
-        }, 5000);
+        }, intervalMs);
         
         // Enemy spawn loop (every 5 seconds)
         this.enemySpawnInterval = setInterval(() => {
             AREAS.forEach(area => {
-                const enemy = generateEnemy(area, this.enemy_luck_multiplier);
+                // Apply shop luck multiplier to enemy generation
+                const effectiveEnemyLuck = this.enemy_luck_multiplier * this.shop_luck_multiplier;
+                const enemy = generateEnemy(area, effectiveEnemyLuck);
                 this.spawned_enemies[area[0]].push(enemy);
                 this.spawned_enemies[area[0]] = sortEnemiesByRarity(this.spawned_enemies[area[0]]);
             });

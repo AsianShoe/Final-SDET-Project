@@ -71,6 +71,7 @@
                 <button id="nav-calendar" class="active">Calendar</button>
                 <button id="nav-shop">Shop</button>
                 <button id="nav-game">Game (RNG System)</button>
+                <button id="nav-settings">Settings</button>
                 <button id="logout-btn" class="logout-btn">Logout</button>
             </nav>
         </header>
@@ -80,7 +81,10 @@
             <div class="calendar-controls">
                 <button id="prev-month">← Previous</button>
                 <h2 id="current-month-year"></h2>
-                <button id="next-month">Next →</button>
+                <div>
+                    <button id="next-month">Next →</button>
+                    <button id="calendar-help-btn" class="help-btn" title="How to use the calendar">?</button>
+                </div>
             </div>
 
             <div class="calendar-container">
@@ -152,12 +156,57 @@
                     <ul id="date-tasks-list" class="task-list"></ul>
                 </div>
             </div>
+
+            <div id="calendar-help-modal" class="task-input-modal">
+                <div class="modal-content">
+                    <span class="close-modal">&times;</span>
+                    <h3>How to Use the Calendar</h3>
+                    <div class="help-content">
+                        <div class="help-item">
+                            <h4>Adding a Task</h4>
+                            <p>Tap a square (day) on the calendar to add a task to that specific day. Enter the task description and time using the prompt that appears.</p>
+                        </div>
+                        <div class="help-item">
+                            <h4>Completing a Task</h4>
+                            <p>The <span class="help-button-example complete-example">○</span> green circle button checks off tasks which you have done. Click it to mark a task as complete (it will show <span class="help-button-example complete-example">✓</span> when completed).</p>
+                        </div>
+                        <div class="help-item">
+                            <h4>Removing a Task</h4>
+                            <p>The <span class="help-button-example delete-example">×</span> red X button removes the task from that day. Click it to delete a task permanently.</p>
+                        </div>
+                        <div class="help-item">
+                            <h4>Viewing Tasks</h4>
+                            <p>Click the "<span style="text-decoration: underline; cursor: pointer;">+X more</span>" text on a day to view all tasks for that day in detail. You can complete or delete tasks from the detail view.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </section>
 
         <section id="shop-page" class="page">
             <h2>Shop</h2>
             <div class="shop-placeholder">
-                <p>The shop is currently empty. Items will be available here soon!</p>
+                <div class="points-display">
+                    <h3>Your Points</h3>
+                    <p class="points-value" id="points-display">Loading...</p>
+                    <p class="points-description">Complete all tasks in a week (Monday-Sunday) to earn points!</p>
+                </div>
+                <div class="shop-items">
+                    <div class="shop-item">
+                        <h4>Luck Multiplier</h4>
+                        <p>Current: <span id="luck-multiplier-display">1x</span></p>
+                        <p>Cost: <span id="luck-multiplier-cost">5 points</span></p>
+                        <p class="shop-item-description">Multiplies your luck for enemies, items, and mold by the multiplier value.</p>
+                        <button id="purchase-luck-multiplier-btn" class="purchase-btn">Upgrade (5 points)</button>
+                    </div>
+                    <div class="shop-item">
+                        <h4>Item Spawn Speed</h4>
+                        <p>Current: <span id="spawn-interval-display">5.0 seconds</span></p>
+                        <p>Cost: <span id="spawn-interval-cost">10 points</span></p>
+                        <p class="shop-item-description">Reduces the time between item spawns. Minimum: 1.5 seconds.</p>
+                        <button id="purchase-spawn-interval-btn" class="purchase-btn">Upgrade (10 points)</button>
+                    </div>
+                </div>
             </div>
         </section>
 
@@ -168,6 +217,9 @@
                 <p>**Complete your tasks on the Calendar page to earn rewards here soon!**</p>
                 <button id="back-to-calendar">Go Back to Calendar</button>
             </div>
+        </section>
+
+        <section id="settings-page" class="page">
         </section>
 
     </div>

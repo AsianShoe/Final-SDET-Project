@@ -301,7 +301,12 @@ function updatePlayerStats() {
     const equipped = gameCore.player.equipped;
     const scaledDamage = equipped ? Math.round(equipped.Damage * levelScale) : 0;
     const scaledDefense = equipped ? Math.round(equipped.Defense * levelScale) : 0;
+    const spawnInterval = gameCore.getSpawnIntervalValue();
 
+    // Calculate effective multipliers (base * shop multiplier)
+    const effectiveLuckMultiplier = (gameCore.luck_multiplier * gameCore.shop_luck_multiplier).toFixed(2);
+    const effectiveMoldMult = (gameCore.mold_mult * gameCore.shop_luck_multiplier).toFixed(2);
+    
     display.innerHTML = `
         <div class="stat-row">
             <div class="stat-col">
@@ -309,15 +314,16 @@ function updatePlayerStats() {
                 <div class="stat-item"><strong>EXP:</strong> ${Math.round(gameCore.player.exp)} / ${expNeeded}</div>
                 <div class="stat-item"><strong>Money:</strong> $${gameCore.money.toFixed(2)}</div>
                 <div class="stat-item"><strong>Rarity Level:</strong> ${gameCore.luck_level}</div>
-                <div class="stat-item"><strong>Rarity Multiplier:</strong> ${gameCore.luck_multiplier}</div>
+                <div class="stat-item"><strong>Rarity Multiplier:</strong> ${effectiveLuckMultiplier}x</div>
                 <div class="stat-item"><strong>Mold Level:</strong> ${gameCore.mold_level}</div>
-                <div class="stat-item"><strong>Mold Multiplier:</strong> ${gameCore.mold_mult}</div>
+                <div class="stat-item"><strong>Mold Multiplier:</strong> ${effectiveMoldMult}x</div>
                 ${equipped ? `<div class="stat-item"><strong>Equipped:</strong> ${equipped.Rarity} ${equipped.Mold} ${equipped.Weapon}</div>` : '<div class="stat-item"><strong>Equipped:</strong> None</div>'}
             </div>
             <div class="stat-combat">
                 <div class="stat-item stat-bold">Damage: ${scaledDamage}</div>
                 <div class="stat-item stat-bold">Defense: ${scaledDefense}</div>
                 <div class="stat-meta">Level scale: ${levelScale.toFixed(2)}x</div>
+                <div class="stat-meta">Spawn interval: ${spawnInterval.toFixed(1)}s</div>
             </div>
         </div>
     `;
@@ -484,7 +490,7 @@ function showUpgrades() {
         <div class="upgrade-section">
             <h4>Mold Upgrades</h4>
             <p>Current Level: ${gameCore.mold_level}</p>
-            <p>Current Multiplier: ${gameCore.mold_mult}</p>
+            <p>Current Multiplier: ${(gameCore.mold_mult * gameCore.shop_luck_multiplier).toFixed(2)}x</p>
             <p>Cost per upgrade: $${gameCore.mold_cost}</p>
             <p>Max upgrades available: ${maxMold}</p>
             <div class="upgrade-controls">
@@ -496,7 +502,7 @@ function showUpgrades() {
         <div class="upgrade-section">
             <h4>Rarity Upgrades</h4>
             <p>Current Level: ${gameCore.luck_level}</p>
-            <p>Current Multiplier: ${gameCore.luck_multiplier}</p>
+            <p>Current Multiplier: ${(gameCore.luck_multiplier * gameCore.shop_luck_multiplier).toFixed(2)}x</p>
             <p>Cost per upgrade: $${gameCore.luck_cost}</p>
             <p>Max upgrades available: ${maxLuck}</p>
             <div class="upgrade-controls">
@@ -688,6 +694,7 @@ function purchaseMoldUpgrades() {
     const result = gameCore.upgradeMold(amount);
     
     if (result.success) {
+        gameCore.updateShopLuckMultiplier(); // Refresh shop multiplier
         gameCore.saveGame();
         updatePlayerStats();
         showUpgrades();
@@ -703,6 +710,7 @@ function purchaseLuckUpgrades() {
     const result = gameCore.upgradeLuck(amount);
     
     if (result.success) {
+        gameCore.updateShopLuckMultiplier(); // Refresh shop multiplier
         gameCore.saveGame();
         updatePlayerStats();
         showUpgrades();

@@ -31,9 +31,16 @@
                         <input type="password" id="login-password" placeholder="Enter password" required>
                         <span class="error-message" id="login-password-error"></span>
                     </div>
+                    <div class="forgot-password-container">
+                        <button type="button" id="forgot-password-btn" class="forgot-password-link">Forgot Password?</button>
+                    </div>
                     <button type="submit" class="auth-submit-btn">Login</button>
                     <div class="auth-message" id="login-message"></div>
                 </form>
+                <div class="auth-switch-container">
+                    <p class="auth-switch-text">Don't have an account?</p>
+                    <button type="button" id="create-account-btn" class="auth-switch-btn">Create Account</button>
+                </div>
             </div>
 
             <!-- Registration Form -->
@@ -59,6 +66,58 @@
                     <button type="submit" class="auth-submit-btn">Register</button>
                     <div class="auth-message" id="register-message"></div>
                 </form>
+                <div class="auth-switch-container">
+                    <p class="auth-switch-text">Already have an account?</p>
+                    <button type="button" id="back-to-login-btn" class="auth-switch-btn">Login</button>
+                </div>
+            </div>
+
+            <!-- Password Reset Form -->
+            <div id="password-reset-form" class="auth-form">
+                <h2>Reset Password</h2>
+                <div id="password-reset-step-1">
+                    <p class="settings-description">Enter your email address. We'll send you a code to reset your password.</p>
+                    <form id="password-reset-request-form">
+                        <div class="form-group">
+                            <label for="reset-email">Email Address</label>
+                            <input type="email" id="reset-email" placeholder="Enter your email address" required>
+                            <span class="error-message" id="reset-email-error"></span>
+                        </div>
+                        <button type="submit" class="auth-submit-btn">Send Reset Code</button>
+                        <div class="auth-message" id="reset-request-message"></div>
+                    </form>
+                    <div class="auth-switch-container">
+                        <button type="button" id="back-to-login-from-reset-btn" class="auth-switch-btn">Back to Login</button>
+                    </div>
+                </div>
+                <div id="password-reset-step-2" style="display: none;">
+                    <p class="settings-description">Enter the 6-digit code sent to your email and your new password.</p>
+                    <form id="password-reset-confirm-form">
+                        <div class="form-group">
+                            <label for="reset-code">Verification Code</label>
+                            <input type="text" id="reset-code" placeholder="Enter 6-digit code" maxlength="6" pattern="[0-9]{6}" required>
+                            <span class="error-message" id="reset-code-error"></span>
+                            <small class="verification-hint">Check your email (and spam folder) for the 6-digit code</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="reset-new-password">New Password</label>
+                            <input type="password" id="reset-new-password" placeholder="Enter new password" required minlength="6">
+                            <span class="error-message" id="reset-new-password-error"></span>
+                            <small class="password-hint">Password must be at least 6 characters long</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="reset-confirm-password">Confirm New Password</label>
+                            <input type="password" id="reset-confirm-password" placeholder="Confirm new password" required>
+                            <span class="error-message" id="reset-confirm-password-error"></span>
+                        </div>
+                        <button type="submit" class="auth-submit-btn">Reset Password</button>
+                        <div class="auth-message" id="reset-confirm-message"></div>
+                    </form>
+                    <div class="auth-switch-container">
+                        <button type="button" id="resend-reset-code-btn" class="auth-switch-btn">Resend Code</button>
+                        <button type="button" id="back-to-reset-email-btn" class="auth-switch-btn">Change Email</button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -224,6 +283,12 @@
 
     </div>
 
+    <!-- EmailJS for email verification -->
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+    
+    <!-- API utility (must load before java.js) -->
+    <script src="api.js"></script>
+    
     <!-- Game Scripts (load in order, synchronously) -->
     <script src="game-config.js"></script>
     <script src="game-enemies.js"></script>

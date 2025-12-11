@@ -21,9 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
     applyTheme(initialTheme);
     
     // --- Authentication State ---
-    const AUTH_TOKEN_KEY = 'authToken';
-    const CURRENT_USER_KEY = 'currentUser';
-    const USERS_STORAGE_KEY = 'users';
+    const CURRENT_USER_KEY = 'currentUser'; // Keep for frontend reference, but auth is handled by session
 
     // --- Input Sanitization ---
     function sanitizeInput(input) {
@@ -54,16 +52,6 @@ document.addEventListener('DOMContentLoaded', () => {
             return { valid: false, error: 'Password must be at least 6 characters long' };
         }
         return { valid: true, value: password };
-    }
-
-    // --- Authentication Functions ---
-    function getUsers() {
-        const usersJson = localStorage.getItem(USERS_STORAGE_KEY);
-        return usersJson ? JSON.parse(usersJson) : {};
-    }
-
-    function saveUsers(users) {
-        localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
     }
 
     // --- Password Hashing using Web Crypto API (PBKDF2) ---
@@ -165,23 +153,44 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function generateToken() {
-        return 'token_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    // Check authentication status (async)
+    async function checkAuthStatus() {
+        try {
+            if (typeof AuthAPI === 'undefined') {
+                return false;
+            }
+            const response = await AuthAPI.checkAuth();
+            if (response.authenticated) {
+                localStorage.setItem(CURRENT_USER_KEY, response.username);
+                return true;
+            } else {
+                localStorage.removeItem(CURRENT_USER_KEY);
+                return false;
+            }
+        } catch (error) {
+            console.error('Auth check error:', error);
+            return false;
+        }
     }
 
     function isAuthenticated() {
-        const token = localStorage.getItem(AUTH_TOKEN_KEY);
-        const user = localStorage.getItem(CURRENT_USER_KEY);
-        return !!(token && user);
+        // Synchronous check - returns cached value
+        // For actual auth, use checkAuthStatus() which is async
+        return !!localStorage.getItem(CURRENT_USER_KEY);
     }
 
-    function setSession(username, token) {
-        localStorage.setItem(AUTH_TOKEN_KEY, token);
+    function setSession(username) {
         localStorage.setItem(CURRENT_USER_KEY, username);
     }
 
-    function clearSession() {
-        localStorage.removeItem(AUTH_TOKEN_KEY);
+    async function clearSession() {
+        try {
+            if (typeof AuthAPI !== 'undefined') {
+                await AuthAPI.logout();
+            }
+        } catch (error) {
+            console.error('Logout error:', error);
+        }
         localStorage.removeItem(CURRENT_USER_KEY);
     }
 
@@ -196,9 +205,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const tabRegister = document.getElementById('tab-register');
     const loginForm = document.getElementById('login-form');
     const registerForm = document.getElementById('register-form');
+    const passwordResetForm = document.getElementById('password-reset-form');
     const loginFormElement = document.getElementById('login-form-element');
     const registerFormElement = document.getElementById('register-form-element');
     const logoutBtn = document.getElementById('logout-btn');
+    const forgotPasswordBtn = document.getElementById('forgot-password-btn');
+    const passwordResetRequestForm = document.getElementById('password-reset-request-form');
+    const passwordResetConfirmForm = document.getElementById('password-reset-confirm-form');
     
     // Verify all authentication elements exist
     if (!tabLogin || !tabRegister || !loginForm || !registerForm) {
@@ -239,15 +252,295 @@ document.addEventListener('DOMContentLoaded', () => {
             tabRegister.classList.remove('active');
             loginForm.classList.add('active');
             registerForm.classList.remove('active');
+            if (passwordResetForm) passwordResetForm.classList.remove('active');
         } else if (tab === 'register') {
             tabLogin.classList.remove('active');
             tabRegister.classList.add('active');
             loginForm.classList.remove('active');
             registerForm.classList.add('active');
+            if (passwordResetForm) passwordResetForm.classList.remove('active');
         }
         // Clear error messages
         document.querySelectorAll('.error-message').forEach(el => el.textContent = '');
         document.querySelectorAll('.auth-message').forEach(el => el.textContent = '');
+    }
+    
+    function showPasswordResetForm() {
+        if (!passwordResetForm || !loginForm) return;
+        
+        loginForm.classList.remove('active');
+        registerForm.classList.remove('active');
+        passwordResetForm.classList.add('active');
+        tabLogin.classList.remove('active');
+        tabRegister.classList.remove('active');
+        
+        showPasswordResetStep1();
+    }
+    
+    function showPasswordResetStep1() {
+        const step1 = document.getElementById('password-reset-step-1');
+        const step2 = document.getElementById('password-reset-step-2');
+        if (step1) step1.style.display = 'block';
+        if (step2) step2.style.display = 'none';
+        
+        // Clear form
+        if (passwordResetRequestForm) passwordResetRequestForm.reset();
+        document.querySelectorAll('.error-message').forEach(el => el.textContent = '');
+        const resetRequestMessage = document.getElementById('reset-request-message');
+        if (resetRequestMessage) resetRequestMessage.textContent = '';
+    }
+    
+    function showPasswordResetStep2() {
+        const step1 = document.getElementById('password-reset-step-1');
+        const step2 = document.getElementById('password-reset-step-2');
+        if (step1) step1.style.display = 'none';
+        if (step2) step2.style.display = 'block';
+        
+        // Clear form
+        if (passwordResetConfirmForm) passwordResetConfirmForm.reset();
+        document.querySelectorAll('.error-message').forEach(el => el.textContent = '');
+        const resetConfirmMessage = document.getElementById('reset-confirm-message');
+        if (resetConfirmMessage) resetConfirmMessage.textContent = '';
+    }
+    
+    async function handlePasswordResetRequest() {
+        const emailInput = document.getElementById('reset-email');
+        const emailError = document.getElementById('reset-email-error');
+        const resetRequestMessage = document.getElementById('reset-request-message');
+        
+        if (!emailInput) return;
+        
+        const email = emailInput.value.trim().toLowerCase();
+        
+        // Clear previous errors
+        if (emailError) {
+            emailError.textContent = '';
+            emailError.style.display = 'none';
+        }
+        if (resetRequestMessage) {
+            resetRequestMessage.textContent = '';
+            resetRequestMessage.className = 'auth-message';
+        }
+        
+        // Validate email
+        if (!email) {
+            if (emailError) {
+                emailError.textContent = 'Please enter your email address';
+                emailError.style.display = 'block';
+            }
+            return;
+        }
+        
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            if (emailError) {
+                emailError.textContent = 'Please enter a valid email address';
+                emailError.style.display = 'block';
+            }
+            return;
+        }
+        
+            // Request password reset
+        try {
+            if (typeof PasswordResetAPI === 'undefined') {
+                throw new Error('API not loaded');
+            }
+            
+            const response = await PasswordResetAPI.requestReset(email);
+            
+            if (response.success) {
+                // Store email for next step
+                emailInput.setAttribute('data-email', email);
+                
+                // Send email via EmailJS if code is provided
+                if (response.code) {
+                    try {
+                        // Verify function exists before calling (safety check)
+                        if (typeof sendPasswordResetEmail !== 'function') {
+                            console.error('sendPasswordResetEmail is not a function. Type:', typeof sendPasswordResetEmail);
+                            throw new Error('Password reset email function is not available. Please do a hard refresh (Ctrl+Shift+R) to clear cache.');
+                        }
+                        // Call the password reset email function
+                        const emailResult = await sendPasswordResetEmail(email, response.code);
+                        if (emailResult.success) {
+                            // Email sent successfully
+                            if (resetRequestMessage) {
+                                resetRequestMessage.textContent = 'Password reset code sent to your email! Please check your inbox (and spam folder).';
+                                resetRequestMessage.className = 'auth-message success';
+                            }
+                        } else {
+                            // EmailJS failed, but code was generated
+                            console.warn('EmailJS sending failed:', emailResult.error);
+                            if (resetRequestMessage) {
+                                resetRequestMessage.textContent = 'Reset code generated. Check server console for code: ' + response.code;
+                                resetRequestMessage.className = 'auth-message error';
+                            }
+                        }
+                    } catch (emailError) {
+                        console.error('Error sending password reset email:', emailError);
+                        // Code was generated, but email failed
+                        if (resetRequestMessage) {
+                            resetRequestMessage.textContent = 'Reset code generated. Check server console for code: ' + response.code;
+                            resetRequestMessage.className = 'auth-message error';
+                        }
+                    }
+                } else {
+                    // No code returned (shouldn't happen, but handle gracefully)
+                    if (resetRequestMessage) {
+                        resetRequestMessage.textContent = response.message || 'Password reset code sent to your email! Please check your inbox (and spam folder).';
+                        resetRequestMessage.className = 'auth-message success';
+                    }
+                }
+                
+                // Show step 2
+                showPasswordResetStep2();
+            } else {
+                throw new Error(response.error || 'Failed to send reset code');
+            }
+        } catch (error) {
+            console.error('Password reset request error:', error);
+            if (resetRequestMessage) {
+                resetRequestMessage.textContent = error.message || 'Failed to send reset code. Please try again.';
+                resetRequestMessage.className = 'auth-message error';
+            }
+        }
+    }
+    
+    async function handlePasswordResetConfirm() {
+        const emailInput = document.getElementById('reset-email');
+        const codeInput = document.getElementById('reset-code');
+        const newPasswordInput = document.getElementById('reset-new-password');
+        const confirmPasswordInput = document.getElementById('reset-confirm-password');
+        const codeError = document.getElementById('reset-code-error');
+        const newPasswordError = document.getElementById('reset-new-password-error');
+        const confirmPasswordError = document.getElementById('reset-confirm-password-error');
+        const resetConfirmMessage = document.getElementById('reset-confirm-message');
+        
+        if (!emailInput || !codeInput || !newPasswordInput || !confirmPasswordInput) return;
+        
+        const email = emailInput.getAttribute('data-email') || emailInput.value.trim().toLowerCase();
+        const code = codeInput.value.trim();
+        const newPassword = newPasswordInput.value;
+        const confirmPassword = confirmPasswordInput.value;
+        
+        // Clear previous errors
+        [codeError, newPasswordError, confirmPasswordError].forEach(el => {
+            if (el) {
+                el.textContent = '';
+                el.style.display = 'none';
+            }
+        });
+        if (resetConfirmMessage) {
+            resetConfirmMessage.textContent = '';
+            resetConfirmMessage.className = 'auth-message';
+        }
+        
+        // Validate inputs
+        if (!code) {
+            if (codeError) {
+                codeError.textContent = 'Please enter the verification code';
+                codeError.style.display = 'block';
+            }
+            return;
+        }
+        
+        if (!/^\d{6}$/.test(code)) {
+            if (codeError) {
+                codeError.textContent = 'Verification code must be 6 digits';
+                codeError.style.display = 'block';
+            }
+            return;
+        }
+        
+        if (!newPassword) {
+            if (newPasswordError) {
+                newPasswordError.textContent = 'Please enter a new password';
+                newPasswordError.style.display = 'block';
+            }
+            return;
+        }
+        
+        if (newPassword.length < 6) {
+            if (newPasswordError) {
+                newPasswordError.textContent = 'Password must be at least 6 characters long';
+                newPasswordError.style.display = 'block';
+            }
+            return;
+        }
+        
+        if (newPassword !== confirmPassword) {
+            if (confirmPasswordError) {
+                confirmPasswordError.textContent = 'Passwords do not match';
+                confirmPasswordError.style.display = 'block';
+            }
+            return;
+        }
+        
+        // Reset password
+        try {
+            if (typeof PasswordResetAPI === 'undefined') {
+                throw new Error('API not loaded');
+            }
+            
+            const response = await PasswordResetAPI.resetPassword(email, code, newPassword);
+            
+            if (response.success) {
+                if (resetConfirmMessage) {
+                    resetConfirmMessage.textContent = 'Password reset successfully! You can now login with your new password.';
+                    resetConfirmMessage.className = 'auth-message success';
+                }
+                
+                // Redirect to login after 2 seconds
+                setTimeout(() => {
+                    switchTab('login');
+                    if (loginFormElement) loginFormElement.reset();
+                }, 2000);
+            } else {
+                throw new Error(response.error || 'Failed to reset password');
+            }
+        } catch (error) {
+            console.error('Password reset confirm error:', error);
+            const errorMessage = error.message || 'Failed to reset password. Please check your code and try again.';
+            
+            if (errorMessage.includes('code') || errorMessage.includes('expired') || errorMessage.includes('Invalid')) {
+                if (codeError) {
+                    codeError.textContent = errorMessage;
+                    codeError.style.display = 'block';
+                }
+            } else {
+                if (resetConfirmMessage) {
+                    resetConfirmMessage.textContent = errorMessage;
+                    resetConfirmMessage.className = 'auth-message error';
+                }
+            }
+        }
+    }
+    
+    async function handleResendResetCode() {
+        const emailInput = document.getElementById('reset-email');
+        if (!emailInput) return;
+        
+        const email = emailInput.getAttribute('data-email') || emailInput.value.trim().toLowerCase();
+        
+        if (!email) {
+            showAppNotification('Please enter your email address first', 'error');
+            return;
+        }
+        
+        try {
+            if (typeof PasswordResetAPI === 'undefined') {
+                throw new Error('API not loaded');
+            }
+            
+            const response = await PasswordResetAPI.requestReset(email);
+            if (response.success) {
+                showAppNotification('New reset code sent to your email!', 'success');
+            } else {
+                throw new Error(response.error || 'Failed to resend code');
+            }
+        } catch (error) {
+            showAppNotification(error.message || 'Failed to resend reset code. Please try again.', 'error');
+        }
     }
 
     function showError(elementId, message) {
@@ -320,38 +613,32 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            // Check if user already exists
-            const users = getUsers();
-            if (users[usernameValidation.value]) {
-                showError('register-username-error', 'Username already exists');
-                return;
-            }
-
-            // Hash password and save user
+            // Register user via API
             try {
-                const hashedPassword = await hashPassword(password);
-                if (!hashedPassword) {
-                    throw new Error('Password hashing returned empty result');
+                if (typeof AuthAPI === 'undefined') {
+                    throw new Error('API not loaded. Please refresh the page.');
                 }
-                
-                users[usernameValidation.value] = {
-                    username: usernameValidation.value,
-                    passwordHash: hashedPassword,
-                    createdAt: new Date().toISOString()
-                };
-                saveUsers(users);
 
-                showMessage('register-message', 'Registration successful! Please login.', false);
-                setTimeout(() => {
-                    switchTab('login');
-                    const loginUsernameInput = document.getElementById('login-username');
-                    if (loginUsernameInput) {
-                        loginUsernameInput.value = usernameValidation.value;
-                    }
-                }, 1500);
+                const response = await AuthAPI.register(usernameValidation.value, password);
+                
+                if (response.success) {
+                    setSession(response.username);
+                    showMessage('register-message', 'Registration successful! Logging you in...', false);
+                    setTimeout(() => {
+                        showApp();
+                        initializeApp();
+                    }, 1000);
+                } else {
+                    throw new Error(response.error || 'Registration failed');
+                }
             } catch (error) {
                 console.error('Registration error:', error);
-                showMessage('register-message', 'Registration failed: ' + error.message, true);
+                const errorMessage = error.message || 'Registration failed. Please try again.';
+                if (errorMessage.includes('already exists')) {
+                    showError('register-username-error', 'Username already exists');
+                } else {
+                    showMessage('register-message', errorMessage, true);
+                }
             }
         });
     }
@@ -391,26 +678,27 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            // Check user exists and verify password
-            const users = getUsers();
-            const user = users[usernameValidation.value];
+            // Login via API
+            try {
+                if (typeof AuthAPI === 'undefined') {
+                    throw new Error('API not loaded. Please refresh the page.');
+                }
 
-            if (!user) {
-                showError('login-username-error', 'Invalid username or password');
-                return;
+                const response = await AuthAPI.login(usernameValidation.value, password);
+                
+                if (response.success) {
+                    setSession(response.username);
+                    showApp();
+                    initializeApp();
+                } else {
+                    throw new Error(response.error || 'Login failed');
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                const errorMessage = error.message || 'Invalid username or password';
+                showError('login-username-error', errorMessage);
+                showError('login-password-error', errorMessage);
             }
-
-            const isValidPassword = await verifyPassword(password, user.passwordHash);
-            if (!isValidPassword) {
-                showError('login-password-error', 'Invalid username or password');
-                return;
-            }
-
-            // Create session
-            const token = generateToken();
-            setSession(usernameValidation.value, token);
-            showApp();
-            initializeApp();
         });
     }
 
@@ -490,9 +778,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Logout Handler ---
     if (logoutBtn) {
-        logoutBtn.addEventListener('click', () => {
-            showAppConfirmation('Are you sure you want to logout?', () => {
-                clearSession();
+        logoutBtn.addEventListener('click', async () => {
+            showAppConfirmation('Are you sure you want to logout?', async () => {
+                await clearSession();
                 showAuth();
                 // Clear forms
                 if (loginFormElement) loginFormElement.reset();
@@ -517,6 +805,75 @@ document.addEventListener('DOMContentLoaded', () => {
             tabRegister: !!tabRegister,
             loginForm: !!loginForm,
             registerForm: !!registerForm
+        });
+    }
+    
+    // Handle "Create Account" button in login form
+    const createAccountBtn = document.getElementById('create-account-btn');
+    if (createAccountBtn) {
+        createAccountBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            switchTab('register');
+        });
+    }
+    
+    // Handle "Back to Login" button in register form
+    const backToLoginBtn = document.getElementById('back-to-login-btn');
+    if (backToLoginBtn) {
+        backToLoginBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            switchTab('login');
+        });
+    }
+    
+    // Handle "Forgot Password?" button in login form
+    if (forgotPasswordBtn) {
+        forgotPasswordBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            showPasswordResetForm();
+        });
+    }
+    
+    // Handle "Back to Login" button in password reset form
+    const backToLoginFromResetBtn = document.getElementById('back-to-login-from-reset-btn');
+    if (backToLoginFromResetBtn) {
+        backToLoginFromResetBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            switchTab('login');
+        });
+    }
+    
+    // Handle "Change Email" button in password reset step 2
+    const backToResetEmailBtn = document.getElementById('back-to-reset-email-btn');
+    if (backToResetEmailBtn) {
+        backToResetEmailBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            showPasswordResetStep1();
+        });
+    }
+    
+    // Handle "Resend Code" button in password reset step 2
+    const resendResetCodeBtn = document.getElementById('resend-reset-code-btn');
+    if (resendResetCodeBtn) {
+        resendResetCodeBtn.addEventListener('click', async function(e) {
+            e.preventDefault();
+            await handleResendResetCode();
+        });
+    }
+    
+    // Handle password reset request form submission
+    if (passwordResetRequestForm) {
+        passwordResetRequestForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            await handlePasswordResetRequest();
+        });
+    }
+    
+    // Handle password reset confirm form submission
+    if (passwordResetConfirmForm) {
+        passwordResetConfirmForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            await handlePasswordResetConfirm();
         });
     }
 
@@ -798,41 +1155,177 @@ document.addEventListener('DOMContentLoaded', () => {
         return emailRegex.test(email);
     }
     
-    async function sendVerificationEmail(email, code) {
-        // Try to use EmailJS if available, otherwise use fallback
+    // EmailJS Configuration
+    // To set up EmailJS:
+    // 1. Go to https://www.emailjs.com/ and create a free account
+    // 2. Create an email service (Gmail, Outlook, etc.)
+    // 3. Create an email template with variables: {{to_email}} and {{verification_code}}
+    // 4. Get your Public Key from the Integration section
+    // 5. Update the values below:
+    const EMAILJS_CONFIG = {
+        serviceId: 'service_80s1dny',      // Your EmailJS service ID
+        templateId: 'template_eqp0j2e',   // Your EmailJS template ID (for email verification)
+        publicKey: 'WVh8o7pHWLGBMVK_K'    // Your EmailJS public key
+    };
+    
+    // Password Reset Email Template ID
+    // Create a separate template in EmailJS for password reset emails
+    // The template should include: {{to_email}} and {{reset_code}}
+    const PASSWORD_RESET_TEMPLATE_ID = 'template_39qjb27'; // Your password reset template ID
+    
+    function isEmailJSConfigured() {
+        return EMAILJS_CONFIG.serviceId !== 'YOUR_SERVICE_ID' &&
+               EMAILJS_CONFIG.templateId !== 'YOUR_TEMPLATE_ID' &&
+               EMAILJS_CONFIG.publicKey !== 'YOUR_PUBLIC_KEY';
+    }
+    
+    // Define password reset email function - SAME SERVICE, DIFFERENT TEMPLATE
+    // Uses the same EmailJS service (service_80s1dny) but different template (template_39qjb27)
+    // Function declaration (hoisted) - defined here but available throughout the scope
+    async function sendPasswordResetEmail(email, code) {
+        // Exact same implementation as sendVerificationEmail, but using password reset template
         try {
             // Check if EmailJS is loaded
-            if (typeof emailjs !== 'undefined' && emailjs.send) {
-                // EmailJS configuration - user needs to set these up
-                const serviceId = 'YOUR_SERVICE_ID'; // User needs to configure
-                const templateId = 'YOUR_TEMPLATE_ID'; // User needs to configure
-                const publicKey = 'YOUR_PUBLIC_KEY'; // User needs to configure
-                
-                // For now, we'll use a fallback since EmailJS needs configuration
-                // In production, uncomment the following and configure EmailJS:
-                /*
-                await emailjs.send(serviceId, templateId, {
-                    to_email: email,
-                    verification_code: code,
-                    from_name: 'RNG Calendar'
-                }, publicKey);
-                */
-                
-                // Fallback: Show code in console and alert (for development/testing)
-                console.log(`Verification code for ${email}: ${code}`);
-                console.log('To enable email sending, configure EmailJS in java.js');
-                return { success: true, method: 'console' };
-            } else {
-                // Fallback method: show in console
-                console.log(`Verification code for ${email}: ${code}`);
-                console.log('EmailJS not configured. Code shown in console for testing.');
-                return { success: true, method: 'console' };
+            if (typeof emailjs === 'undefined') {
+                throw new Error('EmailJS library is not loaded. Please check that the EmailJS script is included in index.html');
             }
+            
+            // Check if EmailJS is configured
+            if (!isEmailJSConfigured()) {
+                throw new Error('EmailJS is not configured. Please update EMAILJS_CONFIG in java.js with your service ID, template ID, and public key.');
+            }
+            
+            // Initialize EmailJS with public key (required for v4)
+            emailjs.init(EMAILJS_CONFIG.publicKey);
+            
+            // Send email using EmailJS v4 API
+            // Note: The variable names must match what you set in your EmailJS template
+            // Common variable names: to_email, email, user_email, etc.
+            const templateParams = {
+                to_email: email,           // This should match your template's "To Email" field variable
+                email: email,              // Also try this common variable name
+                reset_code: code,          // This should match your template's reset code variable
+                code: code,                // Also try this common variable name
+                verification_code: code,   // Some templates use this name
+                from_name: 'RNG Calendar'
+            };
+            
+            console.log('Sending password reset email with EmailJS:', {
+                serviceId: EMAILJS_CONFIG.serviceId,
+                templateId: PASSWORD_RESET_TEMPLATE_ID,
+                to_email: email,
+                templateParams: templateParams
+            });
+            
+            const response = await emailjs.send(
+                EMAILJS_CONFIG.serviceId,
+                PASSWORD_RESET_TEMPLATE_ID,
+                templateParams
+            );
+            
+            console.log('EmailJS response:', response);
+            
+            // Success - email sent
+            return { success: true, method: 'email' };
+        } catch (error) {
+            console.error('Error sending password reset email:', error);
+            console.error('Error details:', {
+                message: error.message,
+                text: error.text,
+                status: error.status
+            });
+            
+            // Provide more specific error messages
+            let errorMessage = 'Failed to send password reset email. ';
+            
+            if (error.text) {
+                errorMessage += `EmailJS error: ${error.text}`;
+            } else if (error.message) {
+                errorMessage += error.message;
+            } else {
+                errorMessage += 'Please check your EmailJS configuration and try again.';
+            }
+            
+            // Return error so UI can show appropriate message
+            return { 
+                success: false, 
+                method: 'error', 
+                error: errorMessage
+            };
+        }
+    }
+    
+    // Verify function is defined (for debugging)
+    console.log('sendPasswordResetEmail defined:', typeof sendPasswordResetEmail);
+    
+    async function sendVerificationEmail(email, code) {
+        try {
+            // Check if EmailJS is loaded
+            if (typeof emailjs === 'undefined') {
+                throw new Error('EmailJS library is not loaded. Please check that the EmailJS script is included in index.html');
+            }
+            
+            // Check if EmailJS is configured
+            if (!isEmailJSConfigured()) {
+                throw new Error('EmailJS is not configured. Please update EMAILJS_CONFIG in java.js with your service ID, template ID, and public key.');
+            }
+            
+            // Initialize EmailJS with public key (required for v4)
+            emailjs.init(EMAILJS_CONFIG.publicKey);
+            
+            // Send email using EmailJS v4 API
+            // Note: The variable names must match what you set in your EmailJS template
+            // Common variable names: to_email, email, user_email, etc.
+            const templateParams = {
+                to_email: email,           // This should match your template's "To Email" field variable
+                email: email,              // Also try this common variable name
+                verification_code: code,   // This should match your template's verification code variable
+                code: code,                // Also try this common variable name
+                from_name: 'RNG Calendar'
+            };
+            
+            console.log('Sending email with EmailJS:', {
+                serviceId: EMAILJS_CONFIG.serviceId,
+                templateId: EMAILJS_CONFIG.templateId,
+                to_email: email,
+                templateParams: templateParams
+            });
+            
+            const response = await emailjs.send(
+                EMAILJS_CONFIG.serviceId,
+                EMAILJS_CONFIG.templateId,
+                templateParams
+            );
+            
+            console.log('EmailJS response:', response);
+            
+            // Success - email sent
+            return { success: true, method: 'email' };
         } catch (error) {
             console.error('Error sending verification email:', error);
-            // Fallback: show code in console
-            console.log(`Verification code for ${email}: ${code}`);
-            return { success: true, method: 'console', error: error.message };
+            console.error('Error details:', {
+                message: error.message,
+                text: error.text,
+                status: error.status
+            });
+            
+            // Provide more specific error messages
+            let errorMessage = 'Failed to send verification email. ';
+            
+            if (error.text) {
+                errorMessage += `EmailJS error: ${error.text}`;
+            } else if (error.message) {
+                errorMessage += error.message;
+            } else {
+                errorMessage += 'Please check your EmailJS configuration and try again.';
+            }
+            
+            // Return error so UI can show appropriate message
+            return { 
+                success: false, 
+                method: 'error', 
+                error: errorMessage
+            };
         }
     }
     
@@ -876,9 +1369,18 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Generate and store verification code
         const code = generateVerificationCode();
-        storeVerificationCode(email, code);
         
-        // Send verification email
+        // Store verification code via API
+        try {
+            if (typeof EmailAPI !== 'undefined') {
+                await EmailAPI.storeVerificationCode(email, code);
+            }
+        } catch (error) {
+            console.error('Error storing verification code:', error);
+            // Continue anyway - code will be sent via email
+        }
+        
+        // Send verification email first
         const sendBtn = document.getElementById('send-verification-btn');
         if (sendBtn) {
             sendBtn.disabled = true;
@@ -889,24 +1391,42 @@ document.addEventListener('DOMContentLoaded', () => {
             const result = await sendVerificationEmail(email, code);
             
             if (result.success) {
-                // Show success message
+        // Save email to user account (but not verified yet) so the verification input shows
+        try {
+            if (typeof UserAPI !== 'undefined') {
+                await UserAPI.updateEmail(email, false);
+            }
+        } catch (error) {
+            console.error('Error saving email:', error);
+            // If authentication error, redirect to login
+            if (error.message && error.message.includes('Authentication required')) {
+                console.log('Session expired, redirecting to login');
+                showAuth();
+                return;
+            }
+            // Continue anyway - email will be saved after verification
+        }
+                
+                // Show success message - NEVER show the code in the UI
                 if (emailMessage) {
-                    if (result.method === 'console') {
-                        emailMessage.textContent = `Verification code sent! Check the browser console (F12) for the code: ${code}`;
-                        emailMessage.className = 'email-message success';
-                    } else {
-                        emailMessage.textContent = 'Verification code sent to your email! Please check your inbox.';
-                        emailMessage.className = 'email-message success';
-                    }
+                    emailMessage.textContent = 'Verification code sent to your email! Please check your inbox (and spam folder) for the 6-digit code.';
+                    emailMessage.className = 'email-message success';
                 }
                 
                 // Rebuild settings page to show verification code input
-                setTimeout(() => {
-                    buildSettingsPage();
+                // Pass the email to preserve it even if API hasn't updated yet
+                setTimeout(async () => {
+                    await buildSettingsPage(email);
                     setupSettingsHandlers();
                 }, 500);
             } else {
-                throw new Error('Failed to send verification email');
+                // Show error message
+                const errorMsg = result.error || 'Failed to send verification email. Please try again.';
+                if (emailMessage) {
+                    emailMessage.textContent = errorMsg;
+                    emailMessage.className = 'email-message error';
+                }
+                showAppNotification(errorMsg, 'error');
             }
         } catch (error) {
             console.error('Error:', error);
@@ -914,6 +1434,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 emailMessage.textContent = 'Error sending verification email. Please try again.';
                 emailMessage.className = 'email-message error';
             }
+            showAppNotification('Error sending verification email. Please try again.', 'error');
         } finally {
             if (sendBtn) {
                 sendBtn.disabled = false;
@@ -946,11 +1467,11 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const result = await sendVerificationEmail(email, code);
             if (result.success) {
-                if (result.method === 'console') {
-                    showAppNotification(`New verification code sent! Check console: ${code}`, 'success');
-                } else {
-                    showAppNotification('New verification code sent to your email!', 'success');
-                }
+                // NEVER show the code - only confirm email was sent
+                showAppNotification('New verification code sent to your email!', 'success');
+            } else {
+                const errorMsg = result.error || 'Failed to resend verification code. Please try again.';
+                showAppNotification(errorMsg, 'error');
             }
         } catch (error) {
             showAppNotification('Error resending verification code. Please try again.', 'error');
@@ -962,7 +1483,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     
-    function handleVerifyCode() {
+    async function handleVerifyCode() {
         const emailInput = document.getElementById('email-input');
         const codeInput = document.getElementById('verification-code-input');
         const codeError = document.getElementById('verification-code-error');
@@ -1000,46 +1521,39 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         
-        // Get stored code
-        const storedCode = getVerificationCode(email);
-        
-        if (!storedCode) {
+        // Verify code via API
+        try {
+            if (typeof EmailAPI === 'undefined' || typeof UserAPI === 'undefined') {
+                throw new Error('API not loaded');
+            }
+
+            const verifyResponse = await EmailAPI.verifyCode(email, enteredCode);
+            
+            if (!verifyResponse.valid) {
+                if (codeError) {
+                    codeError.textContent = verifyResponse.error || 'Invalid or expired verification code. Please try again.';
+                    codeError.style.display = 'block';
+                }
+                return;
+            }
+
+            // Update user email as verified
+            await UserAPI.updateEmail(email, true);
+            
+        } catch (error) {
+            console.error('Error verifying code:', error);
+            // If authentication error, redirect to login
+            if (error.message && error.message.includes('Authentication required')) {
+                console.log('Session expired, redirecting to login');
+                showAuth();
+                return;
+            }
             if (codeError) {
-                codeError.textContent = 'Verification code has expired. Please request a new one.';
+                codeError.textContent = 'Error verifying code. Please try again.';
                 codeError.style.display = 'block';
             }
             return;
         }
-        
-        // Verify code
-        if (enteredCode !== storedCode) {
-            if (codeError) {
-                codeError.textContent = 'Invalid verification code. Please try again.';
-                codeError.style.display = 'block';
-            }
-            return;
-        }
-        
-        // Code is valid - save email to user account
-        const currentUser = getCurrentUser();
-        if (!currentUser) {
-            showAppNotification('No user logged in', 'error');
-            return;
-        }
-        
-        const users = getUsers();
-        if (!users[currentUser]) {
-            showAppNotification('User not found', 'error');
-            return;
-        }
-        
-        // Update user with verified email
-        users[currentUser].email = email;
-        users[currentUser].emailVerified = true;
-        saveUsers(users);
-        
-        // Clear verification code
-        clearVerificationCode(email);
         
         // Show success message
         if (emailMessage) {
@@ -1056,35 +1570,68 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 500);
     }
     
-    function handleChangeEmail() {
+    async function handleChangeEmail() {
         const currentUser = getCurrentUser();
         if (!currentUser) return;
         
-        const users = getUsers();
-        const user = users[currentUser];
-        if (user && user.email) {
-            // Clear email and verification status
-            delete user.email;
-            delete user.emailVerified;
-            saveUsers(users);
-            
-            // Rebuild settings page
-            buildSettingsPage();
-            setupSettingsHandlers();
+        try {
+            // Clear email and verification status via API
+            // This allows the user to enter a new email and verify it
+            if (typeof UserAPI !== 'undefined') {
+                await UserAPI.updateEmail('', false);
+                
+                // Rebuild settings page to show email input form
+                await buildSettingsPage();
+                setupSettingsHandlers();
+                
+                showAppNotification('Email cleared. You can now enter a new email address.', 'success');
+            } else {
+                throw new Error('API not loaded');
+            }
+        } catch (error) {
+            console.error('Error changing email:', error);
+            // If authentication error, redirect to login
+            if (error.message && error.message.includes('Authentication required')) {
+                console.log('Session expired, redirecting to login');
+                showAuth();
+                return;
+            }
+            showAppNotification('Failed to change email. Please try again.', 'error');
         }
     }
     
     // --- Build Settings Page ---
-    function buildSettingsPage() {
+    async function buildSettingsPage(preservedEmail = null) {
         const settingsPage = document.getElementById('settings-page');
         if (!settingsPage) return;
         
         const currentTheme = getTheme();
-        const currentUser = getCurrentUser();
-        const users = getUsers();
-        const user = currentUser ? users[currentUser] : null;
-        const userEmail = user && user.email ? user.email : '';
-        const emailVerified = user && user.emailVerified === true;
+        let userEmail = '';
+        let emailVerified = false;
+        
+        // Check if there's an email in the input field (in case API hasn't updated yet)
+        const emailInput = document.getElementById('email-input');
+        const pendingEmail = emailInput ? emailInput.value.trim() : '';
+        
+        // Fetch user data from API
+        try {
+            if (typeof UserAPI !== 'undefined') {
+                const user = await UserAPI.getUser();
+                userEmail = user.email || '';
+                emailVerified = user.email_verified === 1 || user.email_verified === true;
+            }
+        } catch (error) {
+            console.error('Error fetching user data for settings:', error);
+            // Continue with empty values if API fails
+        }
+        
+        // Use preserved email (passed parameter) if provided, then pending email, then API email
+        // This ensures the verification input shows immediately after sending email
+        if (preservedEmail) {
+            userEmail = preservedEmail;
+        } else if (!userEmail && pendingEmail) {
+            userEmail = pendingEmail;
+        }
         
         settingsPage.innerHTML = `
             <div class="settings-container">
@@ -1131,7 +1678,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                         <label for="verification-code-input">Verification Code</label>
                                         <input type="text" id="verification-code-input" placeholder="Enter 6-digit code" maxlength="6" pattern="[0-9]{6}">
                                         <span class="error-message" id="verification-code-error"></span>
-                                        <small class="verification-hint">Check your email for the 6-digit verification code</small>
+                                        <small class="verification-hint">Check your email (and spam folder) for the 6-digit verification code</small>
                                     </div>
                                     <div class="verification-actions">
                                         <button id="verify-code-btn" class="primary-btn">Verify Code</button>
@@ -1226,6 +1773,14 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
         
+        // Restrict reset code input to numbers only
+        const resetCodeInput = document.getElementById('reset-code');
+        if (resetCodeInput) {
+            resetCodeInput.addEventListener('input', function(e) {
+                this.value = this.value.replace(/[^0-9]/g, '');
+            });
+        }
+        
         // Theme selector handlers
         const themeLight = document.getElementById('theme-light');
         const themeDark = document.getElementById('theme-dark');
@@ -1256,7 +1811,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function deleteAccount() {
+    async function deleteAccount() {
         const currentUser = getCurrentUser();
         if (!currentUser) {
             showAppNotification('No user is currently logged in.', 'error');
@@ -1264,27 +1819,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         try {
-            // Remove user from users object
-            const users = getUsers();
-            if (users[currentUser]) {
-                // Clean up email verification code if user has an email
-                const userEmail = users[currentUser].email;
-                if (userEmail) {
-                    clearVerificationCode(userEmail);
-                }
-                
-                delete users[currentUser];
-                saveUsers(users);
+            // Delete account via API
+            if (typeof UserAPI === 'undefined') {
+                throw new Error('API not loaded');
             }
 
-            // Remove all user-specific localStorage data
-            localStorage.removeItem(`calendarTasks_${currentUser}`);
-            localStorage.removeItem(`calendarPoints_${currentUser}`);
-            localStorage.removeItem(`gameData_${currentUser}`);
-            localStorage.removeItem(`gameSettings_${currentUser}`);
+            await UserAPI.deleteAccount();
 
-            // Clear session (auth token and current user)
-            clearSession();
+            // Clear session
+            await clearSession();
 
             // Stop game loops if game is running
             if (typeof gameCore !== 'undefined' && gameCore && gameCore.stopGameLoops) {
@@ -1406,12 +1949,17 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (pageId === 'settings-page') {
             if (settingsPage) {
                 settingsPage.classList.add('active');
-                buildSettingsPage();
+                // buildSettingsPage is now async, so we need to await it
+                buildSettingsPage().then(() => {
+                    setupSettingsHandlers();
+                }).catch(error => {
+                    console.error('Error building settings page:', error);
+                    setupSettingsHandlers();
+                });
             }
             if (navSettings) {
                 navSettings.classList.add('active');
             }
-            setupSettingsHandlers();
         }
     }
 
@@ -1509,6 +2057,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         try {
+            // Use a more reliable API: AbstractAPI Holidays API (free tier available)
+            // Alternative: Use date.nager.at but ensure correct date parsing
+            // For now, using date.nager.at with proper date handling
             const url = `https://date.nager.at/api/v3/PublicHolidays/${year}/${countryCode}`;
             const response = await fetch(url);
             
@@ -1518,11 +2069,31 @@ document.addEventListener('DOMContentLoaded', () => {
             
             const holidaysData = await response.json();
             
-            // Cache the holidays
-            holidaysCache[cacheKey] = holidaysData;
+            // Validate and fix dates - ensure dates are correct (no timezone issues)
+            const validatedHolidays = holidaysData.map(holiday => {
+                // Parse date string (YYYY-MM-DD) and create a new date object
+                // This ensures we're using the correct date regardless of timezone
+                const dateParts = holiday.date.split('-');
+                const holidayDate = new Date(
+                    parseInt(dateParts[0]), // year
+                    parseInt(dateParts[1]) - 1, // month (0-indexed)
+                    parseInt(dateParts[2]) // day
+                );
+                
+                // Reconstruct date string to ensure it's correct
+                const correctedDate = `${holidayDate.getFullYear()}-${String(holidayDate.getMonth() + 1).padStart(2, '0')}-${String(holidayDate.getDate()).padStart(2, '0')}`;
+                
+                return {
+                    ...holiday,
+                    date: correctedDate
+                };
+            });
+            
+            // Cache the validated holidays
+            holidaysCache[cacheKey] = validatedHolidays;
             localStorage.setItem('holidaysCache', JSON.stringify(holidaysCache));
             
-            return holidaysData;
+            return validatedHolidays;
         } catch (error) {
             console.error('Error fetching holidays:', error);
             // Return empty array on error, but don't cache the error
@@ -1535,13 +2106,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const holidaysByDate = {};
         
         holidaysData.forEach(holiday => {
-            const holidayDate = new Date(holiday.date);
-            const holidayYear = holidayDate.getFullYear();
-            const holidayMonth = holidayDate.getMonth();
+            // Parse date string (YYYY-MM-DD) directly to avoid timezone issues
+            const dateParts = holiday.date.split('-');
+            const holidayYear = parseInt(dateParts[0]);
+            const holidayMonth = parseInt(dateParts[1]) - 1; // Month is 0-indexed
+            const holidayDay = parseInt(dateParts[2]);
             
             // Only include holidays for the current month and year
             if (holidayYear === year && holidayMonth === month) {
-                const dateKey = formatDateKey(holidayDate);
+                // Create date key using the parsed values directly (no timezone conversion)
+                const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(holidayDay).padStart(2, '0')}`;
+                
                 if (!holidaysByDate[dateKey]) {
                     holidaysByDate[dateKey] = [];
                 }
@@ -2329,10 +2904,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- Authentication Check on Load ---
-    if (isAuthenticated()) {
-        showApp();
-        initializeApp();
-    } else {
+    // Check authentication status with server on page load
+    checkAuthStatus().then(authenticated => {
+        if (authenticated) {
+            showApp();
+            initializeApp();
+        } else {
+            showAuth();
+        }
+    }).catch(error => {
+        console.error('Error checking auth status:', error);
         showAuth();
-    }
+    });
 });

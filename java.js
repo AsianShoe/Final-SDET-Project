@@ -183,7 +183,38 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.setItem(CURRENT_USER_KEY, username);
     }
 
+    // Clear all user-specific localStorage data
+    // This should be called BEFORE setting a new session to clear the previous user's data
+    function clearUserData() {
+        // Get current user BEFORE it's changed
+        const currentUser = getCurrentUser();
+        if (currentUser) {
+            // Clear data for the current (previous) user
+            localStorage.removeItem(`calendarTasks_${currentUser}`);
+            localStorage.removeItem(`calendarPoints_${currentUser}`);
+            localStorage.removeItem(`gameData_${currentUser}`);
+            localStorage.removeItem(`gameSettings_${currentUser}`);
+        }
+        // Also clear any potential leftover data by iterating through all localStorage keys
+        // This is a safety measure in case there are any keys we missed
+        const keysToRemove = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && (
+                key.startsWith('calendarTasks_') ||
+                key.startsWith('calendarPoints_') ||
+                key.startsWith('gameData_') ||
+                key.startsWith('gameSettings_')
+            )) {
+                keysToRemove.push(key);
+            }
+        }
+        keysToRemove.forEach(key => localStorage.removeItem(key));
+    }
+
     async function clearSession() {
+        // Clear user-specific data before clearing session
+        clearUserData();
         try {
             if (typeof AuthAPI !== 'undefined') {
                 await AuthAPI.logout();
@@ -622,7 +653,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 const response = await AuthAPI.register(usernameValidation.value, password);
                 
                 if (response.success) {
+                    // Clear any previous user data before setting new session
+                    clearUserData();
                     setSession(response.username);
+                    // Clear data for the new user as well to ensure fresh start
+                    clearUserData();
                     showMessage('register-message', 'Registration successful! Logging you in...', false);
                     setTimeout(() => {
                         showApp();
@@ -687,7 +722,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 const response = await AuthAPI.login(usernameValidation.value, password);
                 
                 if (response.success) {
+                    // Clear any previous user data before setting new session
+                    clearUserData();
                     setSession(response.username);
+                    // Clear data for the new user as well to ensure fresh start
+                    clearUserData();
                     showApp();
                     initializeApp();
                 } else {
@@ -891,6 +930,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const DEFAULT_COUNTRY = 'US'; // Default country code
 
     function initializeApp() {
+        // Reset all user data to ensure clean state for new user
+        tasks = {}; // Reset tasks to empty object
+        
         // Update welcome header
         updateWelcomeHeader();
         
@@ -951,12 +993,36 @@ document.addEventListener('DOMContentLoaded', () => {
         const calendarHelpBtn = document.getElementById('calendar-help-btn');
         const calendarHelpModal = document.getElementById('calendar-help-modal');
 
-        // Load tasks from localStorage (user-specific)
+        // Clear localStorage for current user to ensure fresh start
+        // This ensures that when a new user logs in, they start with a completely clean slate
         const currentUser = getCurrentUser();
-        const savedTasks = localStorage.getItem(`calendarTasks_${currentUser}`);
-        if (savedTasks) {
-            tasks = JSON.parse(savedTasks);
+        if (currentUser) {
+            // Clear all user-specific data
+            localStorage.removeItem(`calendarTasks_${currentUser}`);
+            localStorage.removeItem(`calendarPoints_${currentUser}`);
+            localStorage.removeItem(`gameData_${currentUser}`);
+            localStorage.removeItem(`gameSettings_${currentUser}`);
         }
+        
+        // Also do a final sweep to clear any remaining user-specific data
+        // This is a safety measure in case there are any keys we missed
+        const keysToRemove = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && (
+                key.startsWith('calendarTasks_') ||
+                key.startsWith('calendarPoints_') ||
+                key.startsWith('gameData_') ||
+                key.startsWith('gameSettings_')
+            )) {
+                keysToRemove.push(key);
+            }
+        }
+        keysToRemove.forEach(key => localStorage.removeItem(key));
+        
+        // Tasks should be loaded from API, not localStorage
+        // Starting with empty tasks object - they will be populated as user creates tasks
+        // Points will be initialized to 0 when first accessed via getPoints()
 
         // Load holidays cache from localStorage
         const savedHolidaysCache = localStorage.getItem('holidaysCache');
@@ -2755,15 +2821,23 @@ document.addEventListener('DOMContentLoaded', () => {
         if (taskForm) {
             taskForm.addEventListener('submit', function(event) {
                 event.preventDefault();
+                event.stopPropagation(); // Prevent any bubbling that might cause duplicate submissions
                 
-                const description = document.getElementById('task-description').value.trim();
-                const hour = document.getElementById('task-hour').value;
-                const minute = document.getElementById('task-minute').value;
-                const ampm = document.getElementById('task-ampm').value;
-                const dateKey = selectedDateInput.value;
+                const descriptionInput = document.getElementById('task-description');
+                const hourSelect = document.getElementById('task-hour');
+                const minuteSelect = document.getElementById('task-minute');
+                const ampmSelect = document.getElementById('task-ampm');
+                
+                const description = descriptionInput ? descriptionInput.value.trim() : '';
+                const hour = hourSelect ? hourSelect.value : '';
+                const minute = minuteSelect ? minuteSelect.value : '';
+                const ampm = ampmSelect ? ampmSelect.value : '';
+                const dateKey = selectedDateInput ? selectedDateInput.value : '';
 
-                if (description === "") {
+                // Validate description - only show error if it's actually empty
+                if (!description || description.length === 0) {
                     showAppNotification("Please enter a task description.", 'error');
+                    if (descriptionInput) descriptionInput.focus();
                     return;
                 }
 
@@ -2800,12 +2874,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 
                 // For future dates, no time validation needed - allow any time
-                addTask(dateKey, description, time24);
-                if (taskModal) taskModal.style.display = 'none';
-                document.getElementById('task-description').value = '';
-                document.getElementById('task-hour').value = '';
-                document.getElementById('task-minute').value = '';
-                document.getElementById('task-ampm').value = 'AM';
+                // Only proceed if description is not empty (double-check)
+                if (description && description.length > 0) {
+                    addTask(dateKey, description, time24);
+                    if (taskModal) taskModal.style.display = 'none';
+                    // Clear form fields after successful submission
+                    if (descriptionInput) descriptionInput.value = '';
+                    if (hourSelect) hourSelect.value = '';
+                    if (minuteSelect) minuteSelect.value = '';
+                    if (ampmSelect) ampmSelect.value = 'AM';
+                } else {
+                    // This should never happen, but just in case
+                    showAppNotification("Please enter a task description.", 'error');
+                    if (descriptionInput) descriptionInput.focus();
+                }
             });
         }
 
